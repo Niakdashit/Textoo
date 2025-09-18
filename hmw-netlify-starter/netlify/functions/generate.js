@@ -1,6 +1,20 @@
-// netlify/functions/generate.js  (CommonJS, sans node-fetch)
-exports.handler = async (event, context) => {
+// netlify/functions/generate.js  (CommonJS, Node >=18: fetch global)
+
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Content-Type": "application/json"
+};
+
+exports.handler = async (event /*, context */) => {
+  // 0) Préflight CORS
+  if (event.httpMethod === "OPTIONS") {
+    return { statusCode: 204, headers: CORS_HEADERS, body: "" };
+  }
+
   try {
+    // 1) Body
     const body = event.body ? JSON.parse(event.body) : {};
     const {
       context = "",
@@ -11,6 +25,7 @@ exports.handler = async (event, context) => {
       sourceMeta = {}
     } = body;
 
+    // 2) Prompts
     const SYSTEM = [
       "Tu es un assistant qui rédige des emails professionnels concis et naturels.",
       "Toujours rendre un texte prêt à copier-coller (pas de balises, pas de commentaires).",
@@ -47,10 +62,14 @@ exports.handler = async (event, context) => {
       ].join("\n");
     }
 
-    // --- OpenAI (Node >=18 : fetch est global) ---
+    // 3) OpenAI (fetch natif)
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      return { statusCode: 500, body: JSON.stringify({ error: "Missing OPENAI_API_KEY" }) };
+      return {
+        statusCode: 500,
+        headers: CORS_HEADERS,
+        body: JSON.stringify({ error: "Missing OPENAI_API_KEY" })
+      };
     }
 
     const payload = {
@@ -74,14 +93,22 @@ exports.handler = async (event, context) => {
 
     if (!r.ok) {
       const t = await r.text();
-      return { statusCode: 500, body: JSON.stringify({ error: "openai_error", details: t }) };
+      return {
+        statusCode: 500,
+        headers: CORS_HEADERS,
+        body: JSON.stringify({ error: "openai_error", details: t })
+      };
     }
 
     const data = await r.json();
     const text = (data.choices?.[0]?.message?.content || "").trim();
 
-    return { statusCode: 200, body: JSON.stringify({ text }) };
+    return { statusCode: 200, headers: CORS_HEADERS, body: JSON.stringify({ text }) };
   } catch (err) {
-    return { statusCode: 500, body: JSON.stringify({ error: "server_error", details: String(err?.message || err) }) };
+    return {
+      statusCode: 500,
+      headers: CORS_HEADERS,
+      body: JSON.stringify({ error: "server_error", details: String(err?.message || err) })
+    };
   }
 };
