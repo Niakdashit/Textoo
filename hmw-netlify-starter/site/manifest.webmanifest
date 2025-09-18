@@ -1,0 +1,9 @@
+{
+  "name": "Help me write",
+  "short_name": "HMW",
+  "start_url": "/site/index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0b57d0",
+  "icons": []
+}

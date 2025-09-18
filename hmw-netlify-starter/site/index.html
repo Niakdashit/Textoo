@@ -1,0 +1,67 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Help me write</title>
+  <link rel="manifest" href="/site/manifest.webmanifest">
+  <style>
+    body{font:16px system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:16px;max-width:720px}
+    label{font-size:12px;color:#374151}
+    textarea,select{width:100%;box-sizing:border-box;padding:10px;border:1px solid #e5e7eb;border-radius:10px}
+    button{background:#0b57d0;color:#fff;border:none;border-radius:10px;padding:10px 12px;margin-top:10px;cursor:pointer}
+    pre{white-space:pre-wrap;border:1px solid #e5e7eb;border-radius:10px;padding:10px;margin-top:10px}
+    .row{margin-bottom:10px}
+  </style>
+</head>
+<body>
+  <h2>Help me write</h2>
+  <div class="row">
+    <label>Style</label>
+    <select id="tone">
+      <option value="direct">direct</option>
+      <option value="poli">poli</option>
+      <option value="ferme">ferme</option>
+    </select>
+  </div>
+  <div class="row">
+    <label>Signature</label>
+    <textarea id="sign" rows="2">Cordialement,
+Jonathan</textarea>
+  </div>
+  <div class="row">
+    <label>Contexte (dernier message / points clés)</label>
+    <textarea id="ctx" rows="10"></textarea>
+  </div>
+  <button id="gen">Proposer</button>
+  <button id="copy">Copier</button>
+  <pre id="out"></pre>
+
+  <script>
+  // Configure this at runtime: if you deploy site at root, /generate hits Netlify function via redirect
+  const ENDPOINT = "/generate";
+
+  async function propose() {
+    const body = {
+      context: document.getElementById('ctx').value || "",
+      tone: document.getElementById('tone').value,
+      signature: document.getElementById('sign').value || "Cordialement,\nJonathan"
+    };
+    const r = await fetch(ENDPOINT, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+    const data = await r.json();
+    document.getElementById('out').textContent = data.text || "";
+  }
+  async function copyOut() {
+    await navigator.clipboard.writeText(document.getElementById('out').textContent || "");
+    alert("Copié ✅");
+  }
+  document.getElementById('gen').onclick = propose;
+  document.getElementById('copy').onclick = copyOut;
+
+  // PWA basics
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/site/sw.js').catch(()=>{});
+  }
+  </script>
+</body>
+</html>

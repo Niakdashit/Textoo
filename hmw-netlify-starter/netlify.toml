@@ -1,0 +1,7 @@
+[functions]
+  node_bundler = "esbuild"
+
+[[redirects]]
+  from = "/generate"
+  to = "/.netlify/functions/generate"
+  status = 200
