@@ -1,4 +1,5 @@
-// netlify/functions/generate.js  (CommonJS, Node >=18: fetch global)
+// netlify/functions/generate.js
+// CommonJS – Node >= 18 (fetch natif). CORS inclus.
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -8,31 +9,33 @@ const CORS_HEADERS = {
 };
 
 exports.handler = async (event /*, context */) => {
-  // 0) Préflight CORS
+  // Préflight CORS
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers: CORS_HEADERS, body: "" };
   }
 
   try {
-    // 1) Body
+    // Body
     const body = event.body ? JSON.parse(event.body) : {};
     const {
       context = "",
       tone = "direct",
       signature = "Cordialement,\nJonathan",
       autoTone = false,
-      mode = "draft",
-      sourceMeta = {}
+      mode = "draft",         // "reply" | "analyze" | "draft"
+      sourceMeta = {}         // { subject, fromEmail }
     } = body;
 
-    // 2) Prompts
+    // System prompt
     const SYSTEM = [
       "Tu es un assistant qui rédige des emails professionnels concis et naturels.",
       "Toujours rendre un texte prêt à copier-coller (pas de balises, pas de commentaires).",
       "N'invente pas d'éléments factuels ni de pièces jointes."
     ].join("\n");
 
+    // User prompt selon le mode
     let USER;
+
     if (autoTone && mode === "reply") {
       const subj = sourceMeta.subject || "";
       const from = (sourceMeta.fromEmail || "").toLowerCase();
@@ -62,7 +65,18 @@ exports.handler = async (event /*, context */) => {
       ].join("\n");
     }
 
-    // 3) OpenAI (fetch natif)
+    // Spécifique au mode "analyze" (explique le mail reçu)
+    if (mode === "analyze") {
+      USER = [
+        "Explique clairement le message ci-dessous.",
+        "- Fournis un résumé en 3–5 puces.",
+        "- Détaille ce que l’expéditeur attend de moi (actions).",
+        "- Indique le ton perçu (formel, amical, urgent, neutre…) et la langue.",
+        "<source>\n" + context + "\n</source>"
+      ].join("\n");
+    }
+
+    // Appel OpenAI
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       return {
@@ -79,7 +93,7 @@ exports.handler = async (event /*, context */) => {
         { role: "user",   content: USER }
       ],
       temperature: autoTone ? 0.4 : 0.5,
-      max_tokens: 600
+      max_tokens: 700
     };
 
     const r = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -108,7 +122,6 @@ exports.handler = async (event /*, context */) => {
     return {
       statusCode: 500,
       headers: CORS_HEADERS,
-      body: JSON.stringify({ error: "server_error", details: String(err?.message || err) })
-    };
+      body: JSON.stringify({ error: "server_error", details: String(err?.message || err) }) }
   }
 };
