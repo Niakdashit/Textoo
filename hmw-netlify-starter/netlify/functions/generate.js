@@ -1,7 +1,9 @@
-// netlify/functions/generate.js (ESM)
-export default async (req) => {
+// netlify/functions/generate.js (CommonJS)
+const fetch = (...args) => import('node-fetch').then(({default: f}) => f(...args));
+
+exports.handler = async (event, context) => {
   try {
-    const body = await req.json().catch(() => ({}));
+    const body = event.body ? JSON.parse(event.body) : {};
     const {
       context = "",
       tone = "direct",
@@ -47,14 +49,9 @@ export default async (req) => {
       ].join("\n");
     }
 
-    // === Appel modèle OpenAI (Node fetch) ===
-    // Utilise le modèle le plus économique/efficace que tu as déjà (ex: gpt-4o-mini).
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: "Missing OPENAI_API_KEY" }), {
-        status: 500,
-        headers: { "content-type": "application/json" }
-      });
+      return { statusCode: 500, body: JSON.stringify({ error: "Missing OPENAI_API_KEY" }) };
     }
 
     const payload = {
@@ -78,23 +75,13 @@ export default async (req) => {
 
     if (!r.ok) {
       const t = await r.text();
-      return new Response(JSON.stringify({ error: "openai_error", details: t }), {
-        status: 500,
-        headers: { "content-type": "application/json" }
-      });
+      return { statusCode: 500, body: JSON.stringify({ error: "openai_error", details: t }) };
     }
 
     const data = await r.json();
     const text = (data.choices?.[0]?.message?.content || "").trim();
-
-    return new Response(JSON.stringify({ text }), {
-      status: 200,
-      headers: { "content-type": "application/json" }
-    });
+    return { statusCode: 200, body: JSON.stringify({ text }) };
   } catch (err) {
-    return new Response(JSON.stringify({ error: "server_error", details: String(err?.message || err) }), {
-      status: 500,
-      headers: { "content-type": "application/json" }
-    });
+    return { statusCode: 500, body: JSON.stringify({ error: "server_error", details: String(err?.message || err) }) };
   }
 };
