@@ -1,6 +1,4 @@
-// netlify/functions/generate.js (CommonJS)
-const fetch = (...args) => import('node-fetch').then(({default: f}) => f(...args));
-
+// netlify/functions/generate.js  (CommonJS, sans node-fetch)
 exports.handler = async (event, context) => {
   try {
     const body = event.body ? JSON.parse(event.body) : {};
@@ -16,7 +14,7 @@ exports.handler = async (event, context) => {
     const SYSTEM = [
       "Tu es un assistant qui rédige des emails professionnels concis et naturels.",
       "Toujours rendre un texte prêt à copier-coller (pas de balises, pas de commentaires).",
-      "N'invente pas d'éléments factuels ni de pièces jointes.",
+      "N'invente pas d'éléments factuels ni de pièces jointes."
     ].join("\n");
 
     let USER;
@@ -26,9 +24,9 @@ exports.handler = async (event, context) => {
 
       USER = [
         "RÉPONDS au message source ci-dessous. Écris depuis mon point de vue (première personne).",
-        "Imite EXACTEMENT le ton du message source : langue (FR/EN), niveau de formalité, vouvoiement/tutoiement, chaleur, longueur approximative.",
+        "Imite EXACTEMENT le ton du message source : langue (FR/EN), formalité, vouvoiement/tutoiement, chaleur, longueur approximative.",
         "Ne paraphrase pas le message source : fais avancer la conversation (accusé de réception, réponse, question, prochaine étape, remerciement).",
-        "Structure : (Objet si pertinent → 'Re: " + subj + "'), message, signature fournie telle quelle.",
+        `Structure : (Objet si pertinent → "Re: ${subj}"), message, signature fournie telle quelle.`,
         (from.includes("no-reply") || from.includes("noreply"))
           ? "Attention : l'expéditeur semble 'no-reply'. Propose poliment un autre canal si nécessaire."
           : "",
@@ -49,6 +47,7 @@ exports.handler = async (event, context) => {
       ].join("\n");
     }
 
+    // --- OpenAI (Node >=18 : fetch est global) ---
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       return { statusCode: 500, body: JSON.stringify({ error: "Missing OPENAI_API_KEY" }) };
@@ -58,7 +57,7 @@ exports.handler = async (event, context) => {
       model: "gpt-4o-mini",
       messages: [
         { role: "system", content: SYSTEM },
-        { role: "user", content: USER }
+        { role: "user",   content: USER }
       ],
       temperature: autoTone ? 0.4 : 0.5,
       max_tokens: 600
@@ -80,6 +79,7 @@ exports.handler = async (event, context) => {
 
     const data = await r.json();
     const text = (data.choices?.[0]?.message?.content || "").trim();
+
     return { statusCode: 200, body: JSON.stringify({ text }) };
   } catch (err) {
     return { statusCode: 500, body: JSON.stringify({ error: "server_error", details: String(err?.message || err) }) };
