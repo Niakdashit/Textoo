@@ -1,63 +1,100 @@
-// Netlify Function: /generate  (Node 18+)
-// Env var required: OPENAI_API_KEY
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "Content-Type",
-  "Access-Control-Allow-Methods": "POST,OPTIONS"
-};
-
-exports.handler = async (event) => {
-  if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 200, headers: cors, body: "" };
-  }
-  if (event.httpMethod !== "POST") {
-    return { statusCode: 404, headers: cors, body: "Not Found" };
-  }
-
+// netlify/functions/generate.js (ESM)
+export default async (req) => {
   try {
-    const { context = "", tone = "direct", signature = "Cordialement,\nJonathan" } =
-      JSON.parse(event.body || "{}");
+    const body = await req.json().catch(() => ({}));
+    const {
+      context = "",
+      tone = "direct",
+      signature = "Cordialement,\nJonathan",
+      autoTone = false,
+      mode = "draft",
+      sourceMeta = {}
+    } = body;
 
-    const sys = "Tu es un assistant e-mail fiable. Écris un mail complet, prêt à envoyer.";
-    const user = `Rôle: Assistant de rédaction d'email.
-Contexte (peut être vide):
-"""${context}"""
-Style: ${tone}
-Contraintes:
-- Français par défaut (ou langue dominante si non FR)
-- 6–12 phrases, ton professionnel, clair.
-- Aucune promesse/chiffre non présentes dans le contexte.
-- Utilise des placeholders entre [] si une info manque.
-- Termine par la signature ci-dessous, sans l'altérer.
+    const SYSTEM = [
+      "Tu es un assistant qui rédige des emails professionnels concis et naturels.",
+      "Toujours rendre un texte prêt à copier-coller (pas de balises, pas de commentaires).",
+      "N'invente pas d'éléments factuels ni de pièces jointes.",
+    ].join("\n");
 
-Signature:
-${signature}`;
+    let USER;
+    if (autoTone && mode === "reply") {
+      const subj = sourceMeta.subject || "";
+      const from = (sourceMeta.fromEmail || "").toLowerCase();
+
+      USER = [
+        "RÉPONDS au message source ci-dessous. Écris depuis mon point de vue (première personne).",
+        "Imite EXACTEMENT le ton du message source : langue (FR/EN), niveau de formalité, vouvoiement/tutoiement, chaleur, longueur approximative.",
+        "Ne paraphrase pas le message source : fais avancer la conversation (accusé de réception, réponse, question, prochaine étape, remerciement).",
+        "Structure : (Objet si pertinent → 'Re: " + subj + "'), message, signature fournie telle quelle.",
+        (from.includes("no-reply") || from.includes("noreply"))
+          ? "Attention : l'expéditeur semble 'no-reply'. Propose poliment un autre canal si nécessaire."
+          : "",
+        "<source>\n" + context + "\n</source>",
+        "Signature à utiliser :\n" + signature
+      ].filter(Boolean).join("\n");
+    } else {
+      const tones = {
+        direct: "Ton direct, clair, concret.",
+        poli:   "Ton poli et détaillé, tournures courtoises.",
+        ferme:  "Ton ferme, cadré, professionnel et respectueux."
+      };
+      USER = [
+        "Rédige un email avec ce style : " + (tones[tone] || tones.direct),
+        "Structure : objet (si utile), message, signature.",
+        "Contexte :\n" + context,
+        "Signature à utiliser :\n" + signature
+      ].join("\n");
+    }
+
+    // === Appel modèle OpenAI (Node fetch) ===
+    // Utilise le modèle le plus économique/efficace que tu as déjà (ex: gpt-4o-mini).
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return new Response(JSON.stringify({ error: "Missing OPENAI_API_KEY" }), {
+        status: 500,
+        headers: { "content-type": "application/json" }
+      });
+    }
+
+    const payload = {
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: SYSTEM },
+        { role: "user", content: USER }
+      ],
+      temperature: autoTone ? 0.4 : 0.5,
+      max_tokens: 600
+    };
 
     const r = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        temperature: 0.5,
-        messages: [
-          { role: "system", content: sys },
-          { role: "user", content: user }
-        ]
-      })
+      body: JSON.stringify(payload)
     });
 
     if (!r.ok) {
       const t = await r.text();
-      return { statusCode: 500, headers: { ...cors, "Content-Type": "application/json" }, body: JSON.stringify({ error: "openai_error", details: t }) };
+      return new Response(JSON.stringify({ error: "openai_error", details: t }), {
+        status: 500,
+        headers: { "content-type": "application/json" }
+      });
     }
-    const data = await r.json();
-    const text = data?.choices?.[0]?.message?.content?.trim() || "";
 
-    return { statusCode: 200, headers: { ...cors, "Content-Type": "application/json" }, body: JSON.stringify({ text }) };
-  } catch (e) {
-    return { statusCode: 500, headers: { ...cors, "Content-Type": "application/json" }, body: JSON.stringify({ error: "server_error", details: String(e) }) };
+    const data = await r.json();
+    const text = (data.choices?.[0]?.message?.content || "").trim();
+
+    return new Response(JSON.stringify({ text }), {
+      status: 200,
+      headers: { "content-type": "application/json" }
+    });
+  } catch (err) {
+    return new Response(JSON.stringify({ error: "server_error", details: String(err?.message || err) }), {
+      status: 500,
+      headers: { "content-type": "application/json" }
+    });
   }
 };
