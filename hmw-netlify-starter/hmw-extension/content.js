@@ -51,22 +51,67 @@
     return '';
   }
 
+  /* ---------- Insertion robuste dans Gmail ---------- */
+  function insertInComposer(text){
+    const comp = findComposer();
+    if(!comp) return;
+
+    // Assure un caret en fin si aucune sélection
+    const sel = window.getSelection();
+    if(!sel || sel.rangeCount===0 || !comp.contains(sel.anchorNode)){
+      const r = document.createRange();
+      r.selectNodeContents(comp);
+      r.collapse(false); // fin
+      const s = window.getSelection();
+      s.removeAllRanges();
+      s.addRange(r);
+    }
+    try{
+      // Méthode moderne : insérer un nœud texte à la sélection
+      const range = window.getSelection().getRangeAt(0);
+      const node  = document.createTextNode(text);
+      range.deleteContents();
+      range.insertNode(node);
+      // replacer le caret après le nœud
+      range.setStartAfter(node);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }catch{
+      // Fallback
+      comp.focus();
+      document.execCommand('insertText', false, text);
+    }
+  }
+
   /* ---------- Post-traitement texte ---------- */
   function stripSubject(raw){
     // enlève une ligne d'objet éventuelle au début : "Objet : ..." (espaces, NBSP, etc.)
     return raw.replace(/^\s*(objet[\s\u00A0]*:[^\n]*\n+)/i, '');
   }
   function paragraphize(raw){
-    // si aucun double saut de ligne, on aère après . ? !
-    if (/\n{2,}/.test(raw)) return raw;
-    const parts = raw.split(/(?<=[\.\?\!])\s+(?=[A-ZÀÂÄÇÉÈÊËÎÏÔÖÙÛÜŸ])/g);
-    return parts.join('\n\n');
+    // Normaliser retours
+    let t = raw.replace(/\r\n/g, '\n');
+
+    // S'il n'y a pas déjà de paragraphes (double sauts), aérer après . ? !
+    if (!/\n{2,}/.test(t)) {
+      // Insère un double saut après fin de phrase suivie de n'importe quel caractère non retour
+      t = t.replace(/([\.!?])\s+(?=[^\n])/g, '$1\n\n');
+    }
+
+    // Minimise les triplons
+    t = t.replace(/\n{3,}/g, '\n\n');
+
+    // Forcer paragraphe avant signature
+    t = t.replace(/\n*(Cordialement,?\s*\nNOM Prénom)/i, '\n\n$1');
+
+    return t.trim();
   }
   function emailFormat(raw){
-    let t = (raw||'').replace(/\r\n/g,'\n').trim();
+    let t = (raw||'').trim();
     t = stripSubject(t);
     t = paragraphize(t);
-    return t.trim();
+    return t;
   }
 
   /* ---------- Affichage de la box ---------- */
@@ -137,11 +182,9 @@
 
     // Insérer dans le composer
     on(btnIns,'click', ()=>{
-      const composer = findComposer();
-      if(!composer) return;
       const text = (out.style.display==='block' ? out.textContent : ctx.value).trim();
-      composer.focus();
-      document.execCommand('insertText', false, text);
+      if(!text) return;
+      insertInComposer(text);
     });
   }
 
