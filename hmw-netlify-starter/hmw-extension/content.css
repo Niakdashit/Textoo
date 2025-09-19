@@ -1,64 +1,145 @@
-/* ---- pastille ---- */
-#hmw-bubble{
-  position: fixed; right: 18px; bottom: 18px;
-  width: 56px; height: 56px; border-radius: 999px;
-  background:#6b4eff; color:#fff; border:none;
-  box-shadow:0 8px 24px rgba(107,78,255,.35);
-  cursor:pointer; z-index:2147483000; font-size:24px; line-height:56px;
-  display:flex; align-items:center; justify-content:center;
+/* ===== Help Me Write – Styles légers, sans overlay ===== */
+
+#hmw-bubble {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  width: 56px;
+  height: 56px;
+  border: none;
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(93, 62, 255, .25);
+  background: #6b46ff;
+  color: #fff;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 2147483000; /* au-dessus de Gmail */
+  display: grid;
+  place-items: center;
 }
 
-/* menu rapide */
-#hmw-menu{
-  position: fixed; right: 18px; bottom: 82px; z-index:2147483001;
-  background:#fff; border:1px solid #ece8ff; border-radius:14px;
-  box-shadow:0 14px 40px rgba(19,16,44,.15); overflow:hidden;
-  display:none; min-width:160px;
+#hmw-chooser {
+  position: fixed;
+  right: 88px;
+  bottom: 88px;
+  background: #fff;
+  border: 1px solid #ece7ff;
+  box-shadow: 0 10px 30px rgba(17, 12, 46, .08);
+  border-radius: 14px;
+  padding: 10px;
+  display: none;
+  gap: 8px;
+  z-index: 2147483000;
 }
-#hmw-menu button{
-  display:block; width:100%; padding:10px 14px; background:#fff; border:0; cursor:pointer;
-  text-align:left; font:14px/1.2 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; color:#4b3bc8;
+#hmw-chooser button {
+  border: 1px solid #d9d2ff;
+  background: #f6f3ff;
+  color: #6b46ff;
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-weight: 600;
+  cursor: pointer;
 }
-#hmw-menu button:hover{ background:#f6f3ff; }
+#hmw-chooser button:hover { background: #efe9ff; }
 
-/* panneau — pas d’overlay global */
-#hmw-panel{
-  position: fixed; /* on le place par JS au-dessus du composer */
-  z-index:2147483002; width:min(820px, 92vw);
-  background:#fbf8ff; border:1px solid #ece8ff; border-radius:24px;
-  box-shadow:0 14px 40px rgba(19,16,44,.16); padding:18px;
-  display:none;
-  font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+/* Carte principale alignée au-dessus du composer */
+#hmw-card {
+  position: absolute; /* on l’ancre par JS juste au-dessus du composer */
+  width: 680px;       /* sera ramené à la largeur du composer par JS */
+  max-width: min(860px, 96vw);
+  border-radius: 22px;
+  background: #fbf8ff;
+  border: 1px solid #eee6ff;
+  box-shadow: 0 16px 40px rgba(17,12,46,.10);
+  padding: 10px 14px 12px;
+  z-index: 2147483000;
+  display: none;
 }
 
-/* entête onglets style “Répondre | Analyser” */
-.hmw-tabs{
-  background:#f6f3ff; border:1px solid #ece8ff; border-radius:18px; padding:10px 16px;
-  display:inline-flex; gap:18px; margin-bottom:14px; color:#6b4eff; font-weight:600;
+.hmw-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 10px 8px;
 }
-.hmw-tabs .sep{ color:#c7befa; }
+.hmw-title {
+  font-style: italic;
+  color: #7f6abf;
+  font-size: 20px;
+}
+.hmw-quick {
+  border: 1.5px solid #cdbdff;
+  background: #eadeff;
+  color: #4b35b8;
+  border-radius: 16px;
+  padding: 8px 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
 
-.hmw-block{
-  background:#f6f3ff; border:1px solid #ece8ff; border-radius:22px; padding:16px; margin-top:6px;
-}
-.hmw-block .hmw-badge{
-  float:right; background:#dcd4ff; color:#3b2db6; padding:10px 14px; border-radius:14px; font-weight:700;
+.hmw-field {
+  margin: 4px 2px 10px;
+  background: #fff;
+  border: 1px solid #e6deff;
+  border-radius: 18px;
+  padding: 8px;
 }
 
-/* textarea + actions */
-#hmw-ctx, #hmw-out{
-  width:100%; min-height:160px; resize:vertical; box-sizing:border-box;
-  border:1px solid #e9e4ff; border-radius:18px; padding:18px 16px;
-  background:#fff; color:#271c6b; outline:none; font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+#hmw-context {
+  width: 100%;
+  border: none;
+  outline: none;
+  font-size: 15px;
+  line-height: 1.35;
+  color: #4b3f79;
+  resize: none;
+  max-height: 180px;        /* petit par défaut */
+  overflow: auto;
 }
-#hmw-out{ min-height:200px; }
+#hmw-context::placeholder { color: #b9acd9; }
 
-.hmw-actions{ display:flex; gap:10px; justify-content:flex-end; margin-top:14px; }
-.hmw-btn{
-  border:1px solid #7b67ff; background:#fff; color:#3b2db6;
-  border-radius:14px; padding:10px 16px; cursor:pointer; font-weight:600;
+.hmw-actions {
+  display: flex; justify-content: flex-end; gap: 8px;
+  margin-top: 8px;
 }
-.hmw-btn--primary{
-  background:#f0ecff; border-color:#6b4eff; color:#2d1fb5;
+.hmw-primary {
+  border: 1.5px solid #7d6bff;
+  background: #f3efff;
+  color: #3e2fd6;
+  border-radius: 18px;
+  padding: 10px 16px;
+  font-weight: 700;
+  cursor: pointer;
 }
-.hmw-btn:disabled{ opacity:.6; cursor:default; }
+.hmw-primary[disabled] {
+  opacity: .45; cursor: not-allowed;
+}
+
+#hmw-output {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: #fff;
+  border: 1px solid #e6deff;
+  border-radius: 18px;
+  padding: 12px;
+  font-size: 15px;
+  line-height: 1.45;
+  color: #251f57;
+  margin-top: 6px;
+  max-height: 260px;        /* auto mais contenu long défile */
+  overflow: auto;
+}
+
+.hmw-footer {
+  display: flex; justify-content: flex-end; gap: 8px;
+  margin-top: 10px;
+}
+.hmw-link {
+  border: 1px solid #e2dcff;
+  background: #fff;
+  color: #6b46ff;
+  border-radius: 16px;
+  padding: 8px 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
