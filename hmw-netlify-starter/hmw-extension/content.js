@@ -179,4 +179,88 @@
     const vw = Math.min(r.width, 860, window.innerWidth - 24);
     card.style.width = vw + 'px';
     card.style.left  = (window.scrollX + r.left + (r.width - vw)/2) + 'px';
-    //
+    // juste au-dessus du composer avec 10px d’air
+    const top = window.scrollY + r.top - card.offsetHeight - 10;
+    card.style.top  = Math.max(10 + window.scrollY, top) + 'px';
+  }
+  const positionCard = debounce(placeCardAboveComposer, 50);
+  window.addEventListener('resize', positionCard);
+  window.addEventListener('scroll', positionCard, { passive: true });
+
+  /* -------------------- Actions IA ----------------------- */
+  async function runAction({ quick }) {
+    try {
+      if (!ENDPOINT) { output.textContent = '⚠️ Configure l’endpoint dans les options.'; return; }
+
+      const last = getLastMessageText();
+      let payload;
+
+      if (mode === 'reply') {
+        if (quick || !ctxInput.value.trim() || ctxInput.value.trim().toLowerCase() === 'répond') {
+          payload = {
+            mode: 'reply',
+            autoTone: true,
+            context: last,
+            tone: 'direct',
+            signature: 'Cordialement,\nNOM Prénom',
+            sourceMeta: { subject: '' }
+          };
+        } else {
+          payload = {
+            mode: 'draft',
+            context: ctxInput.value.trim(),
+            tone: 'direct',
+            signature: 'Cordialement,\nNOM Prénom'
+          };
+        }
+      } else { // analyze
+        if (quick || !ctxInput.value.trim()) {
+          payload = { mode: 'explain', context: last };
+        } else {
+          // on demande une explication guidée par le contexte (et non une reformulation)
+          payload = { mode: 'explain', context: ctxInput.value.trim() + '\n\n— Texte reçu —\n' + last };
+        }
+      }
+
+      // état UI
+      const oldQuick = quickBtn.textContent;
+      const oldPrim  = primaryBtn.textContent;
+      if (quick) { quickBtn.textContent = '…'; quickBtn.disabled = true; }
+      else       { primaryBtn.textContent = '…'; primaryBtn.disabled = true; }
+
+      const res = await fetch(ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const t = await res.text().catch(()=> '');
+        output.textContent = `❌ Erreur ${res.status}. ${t}`;
+      } else {
+        const data = await res.json().catch(()=> ({}));
+        const txt = (data.text || data.explanation || '').trim();
+        output.textContent = txt || '—';
+      }
+    } catch (e) {
+      console.error(e);
+      output.textContent = '❌ Erreur réseau/serveur.';
+    } finally {
+      quickBtn.disabled = false; primaryBtn.disabled = !ctxInput.value.trim();
+      quickBtn.textContent = (mode === 'reply') ? 'Réponse rapide' : 'Analyse rapide';
+      primaryBtn.textContent = (mode === 'reply') ? 'Proposition' : 'Étudier';
+      positionCard();
+    }
+  }
+
+  /* --------- Observateurs pour rester présents ---------- */
+  function mount() {
+    ensureBubble(); buildCard(); // carte cachée tant qu’on ne choisit pas
+    // Repositionner si Gmail modifie le DOM
+    const obs = new MutationObserver(positionCard);
+    obs.observe(document.body, { childList: true, subtree: true });
+    log('HMW prêt.');
+  }
+
+  try { mount(); } catch (e) { console.error('[HMW] init', e); }
+})();
