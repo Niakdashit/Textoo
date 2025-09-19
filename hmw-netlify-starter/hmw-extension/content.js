@@ -1,232 +1,339 @@
-// content.js — compact UI, robust endpoint read (sync/local/localStorage), no overlay.
+// content.js — Gmail HMW (UI mono-champ, propre & épuré)
+// - pastille -> choix (Répondre | Analyser)
+// - un seul champ : le contexte, puis le résultat remplace l’éditeur
+//   (la ligne de contexte reste affichée, grisée, tronquée à 1 ligne)
+// - pas d’overlay sombre, panel posé au-dessus du composer
+// - correction race de lecture endpoint (await chrome.storage.sync)
+// - signature générique "NOM Prénom", pas d'objet dans les drafts générés
 
 (() => {
-  const $  = (s, r=document) => r.querySelector(s);
-  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
-  const on = (el, ev, fn) => el && el.addEventListener(ev, fn);
   const log = (...a) => console.debug('[HMW]', ...a);
 
-  // ---------- Endpoint handling ----------
-  let ENDPOINT = '';
+  // ------- helpers -------
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+  const on = (el, ev, fn) => el && el.addEventListener(ev, fn);
 
-  async function readFromSync() {
-    return new Promise(res => {
-      try { chrome.storage.sync.get(['endpoint'], v => res((v && (v.endpoint||'')).trim())); }
-      catch { res(''); }
-    });
-  }
-  async function readFromLocal() {
-    return new Promise(res => {
-      try { chrome.storage.local.get(['endpoint'], v => res((v && (v.endpoint||'')).trim())); }
-      catch { res(''); }
-    });
-  }
-  function readFromLocalStorage() {
-    try { return (localStorage.getItem('HMW_WORKER_URL') || '').trim(); }
-    catch { return ''; }
-  }
-
-  function looksValid(u) {
-    return /^https?:\/\//i.test(u);
-  }
-
-  async function getEndpoint() {
-    if (looksValid(ENDPOINT)) return ENDPOINT;
-
-    const c1 = await readFromSync();
-    if (looksValid(c1)) return (ENDPOINT = c1);
-
-    const c2 = await readFromLocal();
-    if (looksValid(c2)) return (ENDPOINT = c2);
-
-    const c3 = readFromLocalStorage();
-    if (looksValid(c3)) return (ENDPOINT = c3);
-
-    return '';
-  }
-
-  // Live update if options change
-  try {
-    chrome.storage.onChanged.addListener((changes, area) => {
-      if ((area === 'sync' || area === 'local') && changes.endpoint) {
-        const v = (changes.endpoint.newValue || '').trim();
-        if (looksValid(v)) ENDPOINT = v;
-      }
-    });
-  } catch {} // not fatal in non-Chrome contexts
-
-  // ---------- Gmail helpers ----------
   function findComposerBox() {
+    // FR/EN
     return $('div[aria-label="Corps du message"], div[aria-label="Message body"]');
   }
+
   function getLastMessageText() {
+    // Dernier bloc visible suffisamment long
     const blocks = $$('div.a3s, div[role="listitem"] .a3s');
     for (let i = blocks.length - 1; i >= 0; i--) {
-      const t = (blocks[i].innerText || '').trim();
-      if (t.length > 40) return t;
+      const txt = (blocks[i].innerText || '').trim();
+      if (txt.length > 40) return txt;
     }
     return '';
   }
+
   function insertInComposer(text) {
     const box = findComposerBox();
-    if (!box || !text) return;
+    if (!box) return;
     box.focus();
-    try { document.execCommand('insertText', false, text); }
-    catch {
-      const r = document.createRange();
-      r.selectNodeContents(box); r.collapse(false);
-      const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+    try {
+      document.execCommand('insertText', false, text);
+    } catch {
+      const rng = document.createRange();
+      rng.selectNodeContents(box);
+      rng.collapse(false);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(rng);
       document.execCommand('insertText', false, text);
     }
   }
-  function placeCardAboveComposer(el) {
-    const box = findComposerBox();
-    if (!box) { el.style.position='fixed'; el.style.top='84px'; el.style.left='50%'; el.style.transform='translateX(-50%)'; return; }
-    const r = box.getBoundingClientRect();
-    el.style.position='fixed';
-    el.style.left = `${Math.max(20, r.left)}px`;
-    el.style.top  = `${Math.max(60, r.top - 150)}px`;
-    el.style.transform='none';
-  }
 
-  // ---------- FAB + chooser ----------
-  let fab, chooser, card, mode = null; // 'reply' | 'explain'
-
-  function ensureFab() {
-    if (fab) return;
-    fab = document.createElement('button');
-    fab.id = 'hmw-fab';
-    fab.title = 'Help me write';
-    fab.textContent = '✨';
-    document.body.appendChild(fab);
-
-    chooser = document.createElement('div');
-    chooser.id = 'hmw-chooser';
-    chooser.innerHTML = `
-      <button data-mode="reply">Répondre</button>
-      <button data-mode="explain">Analyser</button>
-    `;
-    document.body.appendChild(chooser);
-
-    on(fab,'click',()=> chooser.classList.toggle('open'));
-    on(chooser,'click',e=>{
-      const b = e.target.closest('button'); if (!b) return;
-      mode = b.dataset.mode; chooser.classList.remove('open');
-      openCard(mode);
-    });
-  }
-
-  // ---------- Card ----------
-  function openCard(which) {
-    if (card) card.remove();
-    card = document.createElement('div');
-    card.className = 'hmw-card';
-    card.innerHTML = `
-      <div class="hmw-head">
-        <div class="hmw-title">${which === 'reply' ? 'Rédaction' : 'Analyse'}</div>
-      </div>
-
-      <div class="hmw-row">
-        <textarea id="hmw-input" class="hmw-input"
-          placeholder="${which==='reply'
-            ? 'Contexte… (laisse vide ou écris “répond” pour une réponse automatique)'
-            : 'Contexte… (facultatif, l’email affiché sera analysé)'}"></textarea>
-
-        <div class="hmw-actions-top">
-          ${which==='reply'
-            ? `<button id="hmw-quick"   class="hmw-btn ghost">Réponse rapide</button>
-               <button id="hmw-propose" class="hmw-btn" disabled>Proposition</button>`
-            : `<button id="hmw-quick"   class="hmw-btn ghost">Analyse rapide</button>
-               <button id="hmw-propose" class="hmw-btn" disabled>Étudier</button>`}
-        </div>
-      </div>
-
-      <div id="hmw-out" class="hmw-output" aria-live="polite"></div>
-      <div id="hmw-warn" class="hmw-warning" style="display:none;">⚠️ Configure l’endpoint dans les options.</div>
-
-      <div class="hmw-bottom">
-        <button id="hmw-close" class="hmw-secondary">Fermer</button>
-        <button id="hmw-insert" class="hmw-primary">Insérer</button>
-      </div>
-    `;
-    document.body.appendChild(card);
-    placeCardAboveComposer(card);
-
-    const input   = $('#hmw-input', card);
-    const out     = $('#hmw-out', card);
-    const quick   = $('#hmw-quick', card);
-    const propose = $('#hmw-propose', card);
-    const btnIns  = $('#hmw-insert', card);
-    const btnCls  = $('#hmw-close', card);
-    const warn    = $('#hmw-warn', card);
-
-    // auto-resize (compact)
-    const autoresize = () => {
-      input.style.height = 'auto';
-      input.style.height = Math.min(200, input.scrollHeight) + 'px';
-    };
-    on(input,'input',()=>{ autoresize(); propose.disabled = !input.value.trim(); });
-    setTimeout(autoresize, 0);
-
-    on(btnCls,'click',()=> card.remove());
-    on(btnIns,'click',()=> insertInComposer(out.textContent.trim()));
-
-    // actions
-    on(quick,'click',()=> handleAction({kind:'quick'}));
-    on(propose,'click',()=> handleAction({kind:'propose', ctx: input.value.trim()}));
-
-    // reposition when Gmail reflows
-    const obs = new MutationObserver(()=> placeCardAboveComposer(card));
-    obs.observe(document.body,{childList:true,subtree:true});
-
-    async function handleAction({kind, ctx=''}) {
-      const ep = await getEndpoint();
-      if (!looksValid(ep)) { warn.style.display = 'block'; return; }
-      warn.style.display = 'none';
-
-      const base = { tone: 'direct', signature: 'NOM Prénom' };
-      let payload;
-
-      if (which === 'reply') {
-        if (kind === 'quick' || ctx.toLowerCase() === 'répond' || ctx === '') {
-          payload = {
-            ...base,
-            mode: 'reply',
-            autoTone: true,
-            context: getLastMessageText(),
-            sourceMeta: { subject: '', fromEmail: '' }
-          };
-        } else {
-          payload = { ...base, mode: 'draft', context: ctx };
-        }
-      } else {
-        const emailText = getLastMessageText();
-        if (kind === 'quick' || !ctx) {
-          payload = { mode: 'explain', context: emailText };
-        } else {
-          payload = { mode: 'explain', context: `${emailText}\n\nContexte:\n${ctx}` };
-        }
-      }
-
-      try {
-        quick.disabled = true; propose.disabled = true;
-        const res  = await fetch(ep, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-        const data = await res.json().catch(()=> ({}));
-        out.textContent = (data && (data.text || data.explanation)) || '—';
-      } catch {
-        out.textContent = '❌ Erreur réseau.';
-      } finally {
-        quick.disabled = false; propose.disabled = !input.value.trim();
-      }
+  // ------- storage (endpoint) -------
+  async function loadEndpoint() {
+    try {
+      const res = await chrome.storage.sync.get({ endpoint: '' });
+      const url = (res?.endpoint || '').trim();
+      log('endpoint:', url || '(non défini)');
+      return url;
+    } catch {
+      return '';
     }
   }
 
-  // ---------- Boot ----------
-  function boot() {
-    ensureFab();
-    const obs = new MutationObserver(()=> ensureFab());
-    obs.observe(document.body,{childList:true,subtree:true});
-    log('ready');
+  // ------- UI state -------
+  let bubble, chooser, panel, mode; // mode: 'reply' | 'explain'
+  let ctxInput, ctxLine, resultBox, actionQuickBtn, actionCtxBtn, insertBtn, closeBtn, warnRow;
+
+  function makeBubble() {
+    if (bubble) return;
+    bubble = document.createElement('button');
+    bubble.id = 'hmw-bubble';
+    bubble.title = 'Help me write';
+    bubble.innerHTML = '<span class="hmw-spark">✦</span>';
+    document.body.appendChild(bubble);
+
+    on(bubble, 'click', () => {
+      toggleChooser(true);
+      placeChooser();
+    });
   }
-  try { boot(); } catch(e){ console.error('[HMW]', e); }
+
+  function makeChooser() {
+    if (chooser) return;
+    chooser = document.createElement('div');
+    chooser.id = 'hmw-chooser';
+    chooser.innerHTML = `
+      <button data-act="reply">Répondre</button>
+      <button data-act="explain">Analyser</button>
+    `;
+    document.body.appendChild(chooser);
+
+    chooser.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-act]');
+      if (!btn) return;
+      mode = btn.dataset.act;
+      toggleChooser(false);
+      openPanel(mode);
+    });
+  }
+
+  function toggleChooser(show) {
+    if (!chooser) return;
+    chooser.classList.toggle('open', !!show);
+  }
+
+  function placeChooser() {
+    const box = findComposerBox();
+    if (!box) return;
+    const r = box.getBoundingClientRect();
+    chooser.style.left = Math.round(r.left + (r.width - chooser.offsetWidth) / 2) + 'px';
+    chooser.style.top = Math.round(r.top - 56) + 'px';
+  }
+
+  function makePanel() {
+    if (panel) return;
+    panel = document.createElement('div');
+    panel.id = 'hmw-panel';
+    panel.innerHTML = `
+      <div class="hmw-head">
+        <i class="hmw-title"></i>
+        <div class="hmw-head-actions">
+          <button class="hmw-ghost" id="hmw-quick"></button>
+          <button class="hmw-primary" id="hmw-fromctx"></button>
+        </div>
+      </div>
+
+      <div class="hmw-field">
+        <div class="hmw-contextline" id="hmw-ctxline" title=""></div>
+        <textarea id="hmw-ctx" rows="2" placeholder=""></textarea>
+        <pre id="hmw-result"></pre>
+      </div>
+
+      <div class="hmw-warn" id="hmw-warn" hidden>⚠️ Configure l’endpoint dans les options.</div>
+
+      <div class="hmw-foot">
+        <button id="hmw-close" class="hmw-ghost">Fermer</button>
+        <button id="hmw-insert" class="hmw-primary">Insérer</button>
+      </div>
+    `;
+    document.body.appendChild(panel);
+
+    // refs
+    ctxInput   = $('#hmw-ctx', panel);
+    ctxLine    = $('#hmw-ctxline', panel);
+    resultBox  = $('#hmw-result', panel);
+    actionQuickBtn = $('#hmw-quick', panel);
+    actionCtxBtn   = $('#hmw-fromctx', panel);
+    insertBtn  = $('#hmw-insert', panel);
+    closeBtn   = $('#hmw-close', panel);
+    warnRow    = $('#hmw-warn', panel);
+
+    // actions
+    on(closeBtn, 'click', () => togglePanel(false));
+    on(insertBtn, 'click', () => {
+      const txt = (resultBox.textContent || '').trim();
+      if (txt) insertInComposer(txt);
+    });
+
+    // Submit depuis les boutons
+    on(actionQuickBtn, 'click', () => submit('quick'));
+    on(actionCtxBtn,   'click', () => submit('context'));
+
+    // Petit confort: Ctrl+Enter => depuis le champ contexte
+    on(ctxInput, 'keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') submit('context');
+    });
+  }
+
+  function openPanel(selectedMode) {
+    makePanel();
+
+    // titre, placeholders & libellés selon le mode
+    if (selectedMode === 'reply') {
+      $('.hmw-title', panel).textContent = 'Rédaction';
+      ctxInput.placeholder = 'Contexte… (laisse vide ou écris “répond” pour une réponse automatique)';
+      actionQuickBtn.textContent = 'Réponse rapide';
+      actionCtxBtn.textContent   = 'Proposition';
+    } else {
+      $('.hmw-title', panel).textContent = 'Analyse';
+      ctxInput.placeholder = 'Contexte… (facultatif, le mail actuel sera analysé)';
+      actionQuickBtn.textContent = 'Analyse rapide';
+      actionCtxBtn.textContent   = 'Étudier';
+    }
+
+    // Réinitialiser l’état mono-champ
+    ctxInput.value = '';
+    ctxInput.hidden = false;
+    resultBox.textContent = '';
+    resultBox.hidden = true;
+    ctxLine.textContent = '';
+    ctxLine.title = '';
+    ctxLine.hidden = true;
+
+    togglePanel(true);
+    placePanel();
+    ctxInput.focus();
+  }
+
+  function togglePanel(show) {
+    panel.classList.toggle('open', !!show);
+  }
+
+  function placePanel() {
+    const box = findComposerBox();
+    if (!box) return;
+    const r = box.getBoundingClientRect();
+    // largeur = composer - marges, coller par-dessus
+    const pad = 12;
+    panel.style.width = Math.max(360, r.width - pad * 2) + 'px';
+    panel.style.left  = Math.round(r.left + pad) + 'px';
+    panel.style.top   = Math.round(r.top - panel.offsetHeight - 12) + 'px';
+  }
+
+  function showWarn(show) {
+    warnRow.hidden = !show;
+  }
+
+  function showResult(contextText, resultText) {
+    // Conserver la trace du contexte, tronquée 1 ligne
+    const ctx = (contextText || '').trim();
+    if (ctx) {
+      ctxLine.textContent = ctx;
+      ctxLine.title = ctx;
+      ctxLine.hidden = false;
+    } else {
+      ctxLine.hidden = true;
+    }
+    // Remplacer l’éditeur par le résultat dans le *même* bloc
+    ctxInput.hidden = true;
+    resultBox.textContent = (resultText || '').trim() || '—';
+    resultBox.hidden = false;
+
+    // Ajuster la position si la hauteur a changé
+    placePanel();
+  }
+
+  // ------- submit -------
+  async function submit(kind) {
+    // kind: 'quick' (aucun contexte) | 'context' (utilise ctxInput)
+    const ENDPOINT = await loadEndpoint();
+    showWarn(!ENDPOINT);
+    if (!ENDPOINT) return;
+
+    const last = getLastMessageText();
+    const rawCtx = (ctxInput.value || '').trim();
+    const useCtx = kind === 'context' ? rawCtx : '';
+
+    /** payload */
+    let payload;
+
+    if (mode === 'reply') {
+      if (!useCtx || /^répond/.test(useCtx.toLowerCase())) {
+        payload = {
+          mode: 'reply',
+          autoTone: true,
+          context: last,
+          tone: 'direct',
+          signature: 'Cordialement,\nNOM Prénom',
+          sourceMeta: { subject: '' } // on n'impose pas d'objet
+        };
+      } else {
+        payload = {
+          mode: 'draft',
+          context: useCtx,
+          tone: 'direct',
+          signature: 'Cordialement,\nNOM Prénom'
+        };
+      }
+    } else {
+      // analyse
+      payload = {
+        mode: 'explain',
+        context: useCtx || last
+      };
+    }
+
+    // UI busy
+    const previousQuick = actionQuickBtn.textContent;
+    const previousCtx   = actionCtxBtn.textContent;
+    actionQuickBtn.disabled = true;
+    actionCtxBtn.disabled   = true;
+    actionQuickBtn.textContent = '…';
+    actionCtxBtn.textContent   = '…';
+
+    try {
+      const res = await fetch(ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const t = await res.text().catch(()=>'');
+        showResult(rawCtx, `❌ Erreur (${res.status}). ${t || ''}`.trim());
+        return;
+      }
+      const data = await res.json().catch(()=> ({}));
+      const text = (data.text || data.explanation || '').trim();
+      showResult(rawCtx, text);
+    } catch (e) {
+      showResult(rawCtx, '❌ Erreur réseau ou serveur.');
+      console.error(e);
+    } finally {
+      actionQuickBtn.disabled = false;
+      actionCtxBtn.disabled   = false;
+      actionQuickBtn.textContent = previousQuick;
+      actionCtxBtn.textContent   = previousCtx;
+    }
+  }
+
+  // ------- observers & layout -------
+  function attachObservers() {
+    // (re)placer UI quand Gmail change le DOM
+    const obs = new MutationObserver(() => {
+      makeBubble();
+      makeChooser();
+      placeChooser();
+      if (panel?.classList.contains('open')) placePanel();
+    });
+    obs.observe(document.body, { childList: true, subtree: true });
+
+    // recalculs sur resize / scroll
+    window.addEventListener('resize', () => {
+      placeChooser();
+      if (panel?.classList.contains('open')) placePanel();
+    }, { passive: true });
+    window.addEventListener('scroll', () => {
+      placeChooser();
+      if (panel?.classList.contains('open')) placePanel();
+    }, { passive: true });
+  }
+
+  // boot
+  try {
+    makeBubble();
+    makeChooser();
+    attachObservers();
+    log('ready');
+  } catch (e) {
+    console.error('[HMW] init', e);
+  }
 })();
