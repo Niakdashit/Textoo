@@ -1,101 +1,144 @@
-/* content.css — style épuré, premium, sans overlay */
+/* === HMW — Gmail mini box === */
 
-/* pastille */
-#hmw-bubble{
-  position: fixed;
-  right: 20px; bottom: 24px;
-  width: 44px; height: 44px; border-radius: 50%;
-  border: 0; cursor: pointer;
-  background: #6f47ff;
-  box-shadow: 0 6px 18px rgba(111,71,255,.25);
-  display: grid; place-items: center;
+/* Palette */
+:root {
+  --hmw-bg: #fbf7ff;          /* fond très léger */
+  --hmw-fg: #3f23c2;          /* violet texte/contours */
+  --hmw-border: #6c4af6;      /* contour */
+  --hmw-muted: #b8aaf2;       /* éléments atténués */
+  --hmw-danger: #ff6b6b;      /* close */
+}
+
+/* Boîte principale, largeur fixe (cf. content.js pour la valeur px) */
+#hmw-box {
+  position: absolute; /* on positionne juste au-dessus du composer */
   z-index: 2147483000;
+  background: var(--hmw-bg);
+  border: 2px solid var(--hmw-border);
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(63,35,194,0.12);
+  overflow: hidden;
+  backdrop-filter: saturate(1.1);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 }
-#hmw-bubble .hmw-spark{ color:#fff; font-size:20px; line-height:1; }
 
-/* mini-chooser */
-#hmw-chooser{
-  position: fixed; z-index: 2147483000;
-  display: none; gap:8px; padding:6px;
-  background: #fff; border:1px solid rgba(0,0,0,.08);
-  border-radius: 12px; box-shadow: 0 8px 28px rgba(15,15,20,.12);
+/* Titre en italique (“Rédaction” / “Analyse”) */
+#hmw-box .hmw-title {
+  font-style: italic;
+  color: var(--hmw-muted);
+  padding: 10px 14px 0 14px;
+  font-size: 14px;
 }
-#hmw-chooser.open{ display:flex; }
-#hmw-chooser button{
-  border:0; padding:8px 12px; border-radius:10px; cursor:pointer;
-  background:#f5f1ff; color:#5c3cff; font-weight:600;
-}
-#hmw-chooser button:hover{ background:#ede7ff; }
 
-/* panel */
-#hmw-panel{
-  position: fixed; z-index: 2147483000;
-  width: 640px;
-  background: rgba(255,255,255,.96);
-  backdrop-filter: saturate(120%) blur(6px);
-  border:1px solid rgba(0,0,0,.08);
-  border-radius: 18px;
-  box-shadow: 0 16px 42px rgba(15,15,20,.18);
-  padding: 14px;
-  display:none;
-}
-#hmw-panel.open{ display:block; }
-
-/* head */
-#hmw-panel .hmw-head{
-  display:flex; align-items:center; justify-content:space-between; gap:12px;
-  padding: 6px 6px 8px;
-}
-#hmw-panel .hmw-title{ font-style: italic; color:#6b5fcf; font-size:16px; }
-#hmw-panel .hmw-head-actions{ display:flex; gap:8px; }
-#hmw-panel .hmw-ghost,
-#hmw-panel .hmw-primary{
-  border-radius: 999px; padding:8px 12px; font-weight: 600; cursor:pointer; border:1px solid transparent;
-}
-#hmw-panel .hmw-ghost{
-  background:#f8f7ff; color:#5c3cff; border-color:#e8e5ff;
-}
-#hmw-panel .hmw-ghost:hover{ background:#f0edff; }
-#hmw-panel .hmw-primary{
-  background:#6f47ff; color:#fff; box-shadow: 0 6px 18px rgba(111,71,255,.25);
-}
-#hmw-panel .hmw-primary:disabled,
-#hmw-panel button:disabled{ opacity:.6; cursor:default; box-shadow:none; }
-
-/* mono-champ */
-#hmw-panel .hmw-field{
+/* Zone saisie / résultat (un seul “champ”) */
+#hmw-box .hmw-area {
   position: relative;
-  border:1px solid #ece8ff; background:#fbf9ff;
-  border-radius:16px; padding:12px;
-}
-#hmw-ctx{
-  width:100%; resize: none; border:0; outline: none; background: transparent;
-  font: 14px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color:#3a2f73; min-height:40px; max-height:140px; overflow: auto;
-}
-#hmw-ctx::placeholder{ color:#b7aedf; }
-#hmw-result{
-  margin:0; white-space:pre-wrap; font: 14px/1.55 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color:#2c226b;
-}
-#hmw-result[hidden]{ display:none; }
-
-/* ligne contexte conservée (tronquée) */
-#hmw-ctxline{
-  display:block; color:#9e96cc; font-size:12px; line-height:1.4;
-  max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-  margin-bottom:6px;
-}
-#hmw-ctxline[hidden]{ display:none; }
-
-/* warning */
-#hmw-panel .hmw-warn{
-  margin-top:8px; padding:8px 10px;
-  background:#fff6d6; color:#7a4a00; border:1px solid #f3df9d;
-  border-radius:10px; font-size:12px;
+  margin: 8px 12px 6px 12px;
+  border: 1px solid var(--hmw-border);
+  border-radius: 8px;
+  background: #fcfbff;
 }
 
-/* foot */
-#hmw-panel .hmw-foot{
-  display:flex; justify-content:flex-end; gap:8px; padding-top:10px;
+/* textarea (phase saisie) */
+#hmw-box textarea {
+  width: 100%;
+  height: 54px;                    /* compact par défaut */
+  min-height: 42px;
+  max-height: 180px;
+  padding: 12px 44px 12px 18px;    /* place pour l’icône copier */
+  border: 0;
+  outline: 0;
+  resize: vertical;
+  background: transparent;
+  color: #3a2c7e;
+  font-size: 14px;
+  line-height: 1.35;
 }
+
+/* Icône copier en haut-droite de la zone */
+#hmw-copy {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  font-size: 16px;
+  color: var(--hmw-fg);
+  opacity: .85;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Bande “résumé de contexte” quand résultat affiché */
+#hmw-box .hmw-chip {
+  display: none;                   /* masquée tant qu’il n’y a pas de résultat */
+  padding: 8px 44px 6px 14px;
+  color: #7c74c9;
+  background: #f6f3ff;
+  border-bottom: 1px solid var(--hmw-border);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
+}
+
+/* Vue résultat (remplace le textarea) */
+#hmw-result {
+  display: none;
+  padding: 12px 14px;
+  color: #261a86;
+  font-size: 14px;
+  line-height: 1.35;
+  max-height: 220px;
+  overflow: auto;                  /* grand texte -> scroll interne */
+}
+
+/* Barre d’actions bas (“Proposition | Réponse rapide | Insérer”) */
+#hmw-actions {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  justify-content: center;
+  border-top: 1px solid var(--hmw-border);
+  padding: 10px 12px;
+  background: #ffffff;
+}
+
+#hmw-actions .hmw-link {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--hmw-fg);
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1;
+  padding: 6px 0;
+  cursor: pointer;
+}
+
+#hmw-actions .hmw-sep {
+  width: 1px;
+  height: 16px;
+  background: #cbbefc;
+}
+
+/* Bouton fermer (petit rond rouge) */
+#hmw-close {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--hmw-danger);
+  color: #fff;
+  font-weight: 700;
+  border: 0;
+  line-height: 22px;
+  text-align: center;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* État “mode résultat” : chip + résultat visibles, textarea masqué */
+#hmw-box.has-result .hmw-chip { display: block; }
+#hmw-box.has-result textarea { display: none; }
+#hmw-box.has-result #hmw-result { display: block; }
