@@ -1,76 +1,101 @@
-/* --- FAB ----------------------------------------------------- */
-#hmw-fab{
-  position:fixed; right:22px; bottom:22px; z-index:2147483000;
-  width:48px; height:48px; border-radius:50%; border:0; cursor:pointer;
-  background:#6f4af6; color:#fff; font-size:20px; line-height:1;
-  box-shadow:0 8px 20px rgba(111,74,246,.28); display:grid; place-items:center;
-}
+/* content.css — style épuré, premium, sans overlay */
 
-/* Chooser */
+/* pastille */
+#hmw-bubble{
+  position: fixed;
+  right: 20px; bottom: 24px;
+  width: 44px; height: 44px; border-radius: 50%;
+  border: 0; cursor: pointer;
+  background: #6f47ff;
+  box-shadow: 0 6px 18px rgba(111,71,255,.25);
+  display: grid; place-items: center;
+  z-index: 2147483000;
+}
+#hmw-bubble .hmw-spark{ color:#fff; font-size:20px; line-height:1; }
+
+/* mini-chooser */
 #hmw-chooser{
-  position:fixed; right:78px; bottom:22px; z-index:2147483000;
-  display:none; gap:8px; background:#fff; border:1px solid #eeeafc;
-  border-radius:12px; padding:8px 10px; box-shadow:0 12px 28px rgba(0,0,0,.06);
+  position: fixed; z-index: 2147483000;
+  display: none; gap:8px; padding:6px;
+  background: #fff; border:1px solid rgba(0,0,0,.08);
+  border-radius: 12px; box-shadow: 0 8px 28px rgba(15,15,20,.12);
 }
 #hmw-chooser.open{ display:flex; }
 #hmw-chooser button{
-  background:#fff; color:#5a3ef0; border:1px solid #dcd3ff;
-  border-radius:10px; padding:8px 10px; font-weight:600; cursor:pointer;
+  border:0; padding:8px 12px; border-radius:10px; cursor:pointer;
+  background:#f5f1ff; color:#5c3cff; font-weight:600;
+}
+#hmw-chooser button:hover{ background:#ede7ff; }
+
+/* panel */
+#hmw-panel{
+  position: fixed; z-index: 2147483000;
+  width: 640px;
+  background: rgba(255,255,255,.96);
+  backdrop-filter: saturate(120%) blur(6px);
+  border:1px solid rgba(0,0,0,.08);
+  border-radius: 18px;
+  box-shadow: 0 16px 42px rgba(15,15,20,.18);
+  padding: 14px;
+  display:none;
+}
+#hmw-panel.open{ display:block; }
+
+/* head */
+#hmw-panel .hmw-head{
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding: 6px 6px 8px;
+}
+#hmw-panel .hmw-title{ font-style: italic; color:#6b5fcf; font-size:16px; }
+#hmw-panel .hmw-head-actions{ display:flex; gap:8px; }
+#hmw-panel .hmw-ghost,
+#hmw-panel .hmw-primary{
+  border-radius: 999px; padding:8px 12px; font-weight: 600; cursor:pointer; border:1px solid transparent;
+}
+#hmw-panel .hmw-ghost{
+  background:#f8f7ff; color:#5c3cff; border-color:#e8e5ff;
+}
+#hmw-panel .hmw-ghost:hover{ background:#f0edff; }
+#hmw-panel .hmw-primary{
+  background:#6f47ff; color:#fff; box-shadow: 0 6px 18px rgba(111,71,255,.25);
+}
+#hmw-panel .hmw-primary:disabled,
+#hmw-panel button:disabled{ opacity:.6; cursor:default; box-shadow:none; }
+
+/* mono-champ */
+#hmw-panel .hmw-field{
+  position: relative;
+  border:1px solid #ece8ff; background:#fbf9ff;
+  border-radius:16px; padding:12px;
+}
+#hmw-ctx{
+  width:100%; resize: none; border:0; outline: none; background: transparent;
+  font: 14px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color:#3a2f73; min-height:40px; max-height:140px; overflow: auto;
+}
+#hmw-ctx::placeholder{ color:#b7aedf; }
+#hmw-result{
+  margin:0; white-space:pre-wrap; font: 14px/1.55 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color:#2c226b;
+}
+#hmw-result[hidden]{ display:none; }
+
+/* ligne contexte conservée (tronquée) */
+#hmw-ctxline{
+  display:block; color:#9e96cc; font-size:12px; line-height:1.4;
+  max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  margin-bottom:6px;
+}
+#hmw-ctxline[hidden]{ display:none; }
+
+/* warning */
+#hmw-panel .hmw-warn{
+  margin-top:8px; padding:8px 10px;
+  background:#fff6d6; color:#7a4a00; border:1px solid #f3df9d;
+  border-radius:10px; font-size:12px;
 }
 
-/* --- Card ---------------------------------------------------- */
-.hmw-card{
-  position:absolute; z-index:2147483000; width:680px; max-width:calc(100vw - 80px);
-  background:#faf9ff; border:1px solid #eeeafc; border-radius:16px;
-  box-shadow:0 10px 26px rgba(111,74,246,.08); padding:14px 16px 10px;
+/* foot */
+#hmw-panel .hmw-foot{
+  display:flex; justify-content:flex-end; gap:8px; padding-top:10px;
 }
-
-/* En-tête italique discret */
-.hmw-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
-.hmw-title{ font-style:italic; color:#5a3ef0; font-size:16px; margin-left:4px; }
-
-/* Champ compact auto-grow */
-.hmw-row{ position:relative; }
-.hmw-input{
-  width:100%; min-height:48px; max-height:200px; overflow:auto; resize:none;
-  border:1px solid #e9e1ff; border-radius:12px; background:#fff;
-  padding:12px 120px 12px 14px; font-size:14px; line-height:1.35; outline:none;
-}
-.hmw-input::placeholder{ color:#b7b0d5; }
-
-/* Actions à droite du champ */
-.hmw-actions-top{
-  position:absolute; right:8px; top:8px; display:flex; gap:8px;
-}
-.hmw-btn{
-  border:1px solid #5a3ef0; color:#fff; background:#5a3ef0;
-  border-radius:10px; padding:8px 10px; font-weight:700; cursor:pointer;
-}
-.hmw-btn.ghost{
-  background:#fff; color:#5a3ef0; border-color:#dcd3ff;
-}
-.hmw-btn[disabled]{ opacity:.45; cursor:not-allowed; }
-
-/* Résultat */
-.hmw-output{
-  margin-top:10px; background:#fff; border:1px solid #e9e1ff; border-radius:12px;
-  min-height:52px; max-height:300px; overflow:auto; padding:12px 14px;
-  white-space:pre-wrap; font-size:14px; line-height:1.35;
-}
-
-/* Avertissement endpoint */
-.hmw-warning{
-  display:block; margin-top:8px; font-size:13px; color:#6b60cc;
-  background:#f7f4ff; border:1px dashed #d7cffd; border-radius:10px; padding:8px 10px;
-}
-
-/* Bas */
-.hmw-bottom{ display:flex; justify-content:flex-end; gap:8px; margin-top:10px; }
-.hmw-secondary{
-  background:#fff; color:#5a3ef0; border:1px solid #dcd3ff; border-radius:10px; padding:8px 10px; font-weight:600; cursor:pointer;
-}
-.hmw-primary{
-  background:#5a3ef0; color:#fff; border:1px solid #5a3ef0; border-radius:10px; padding:8px 12px; font-weight:700; cursor:pointer;
-}
-
-/* No overlay on purpose */
