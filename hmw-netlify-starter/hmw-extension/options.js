@@ -1,43 +1,42 @@
-// En MV3, pas de JS inline : tout dans ce fichier.
-const LS = 'HMW_WORKER_URL';
+(function(){
+  const input = document.getElementById('endpoint');
+  const msg   = document.getElementById('msg');
+  const save  = document.getElementById('save');
 
-const $ = (sel) => document.querySelector(sel);
-const input = $('#endpoint');
-const btn   = $('#save');
-const msg   = $('#msg');
+  function looksValid(u){ return /^https?:\/\//i.test((u||'').trim()); }
 
-function setMsg(text, ok = true) {
-  msg.textContent = text;
-  msg.style.color = ok ? '#065f46' : '#b91c1c';
-  if (text) setTimeout(() => (msg.textContent = ''), 1800);
-}
+  function setMsg(t){ msg.textContent = t; setTimeout(()=> msg.textContent='', 1600); }
 
-// Charge la valeur existante (chrome.storage > localStorage fallback)
-(async () => {
+  // load
   try {
-    const { HMW_WORKER_URL } = await chrome.storage.local.get([LS]);
-    const v = HMW_WORKER_URL || localStorage.getItem(LS) || '';
-    if (v) input.value = v;
-  } catch (e) {
-    // très rare, mais au cas où
-    const v = localStorage.getItem(LS) || '';
-    if (v) input.value = v;
-  }
+    chrome.storage.sync.get(['endpoint'], v => {
+      if (v && v.endpoint) input.value = v.endpoint;
+      else {
+        chrome.storage.local.get(['endpoint'], w => {
+          if (w && w.endpoint) input.value = w.endpoint;
+          else {
+            const ls = localStorage.getItem('HMW_WORKER_URL') || '';
+            if (ls) input.value = ls;
+          }
+        });
+      }
+    });
+  } catch {}
+
+  save.addEventListener('click', () => {
+    const val = (input.value || '').trim();
+    if (!looksValid(val)) { setMsg('URL invalide'); return; }
+
+    try {
+      chrome.storage.sync.set({ endpoint: val }, () => {
+        // Backups for old versions:
+        try { chrome.storage.local.set({ endpoint: val }); } catch {}
+        try { localStorage.setItem('HMW_WORKER_URL', val); } catch {}
+        setMsg('Sauvegardé ✓');
+      });
+    } catch {
+      try { localStorage.setItem('HMW_WORKER_URL', val); setMsg('Sauvegardé (local) ✓'); }
+      catch { setMsg('Erreur de sauvegarde'); }
+    }
+  });
 })();
-
-// Sauvegarde
-btn.addEventListener('click', async () => {
-  const v = input.value.trim();
-  if (!v) {
-    setMsg("L’URL est vide.", false);
-    return;
-  }
-  try {
-    await chrome.storage.local.set({ [LS]: v });
-    // fallback pour le bookmarklet éventuel
-    localStorage.setItem(LS, v);
-    setMsg('Enregistré ✔');
-  } catch (e) {
-    setMsg('Erreur de sauvegarde', false);
-  }
-});
