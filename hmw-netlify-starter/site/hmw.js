@@ -1,5 +1,6 @@
-<script>
-// hmw.js — charge via bookmarklet court. Aucune dépendance.
+// hmw.js — UI + logique (Répondre / Analyser / Proposition) pour Gmail.
+// Charge-le via un bookmarklet court.
+
 (function () {
   try {
     var d = document, LS = 'HMW_WORKER_URL';
@@ -15,7 +16,6 @@
     function qa(s, root){ return Array.from((root||d).querySelectorAll(s)) }
 
     function getLastGmailMessageText(){
-      // Récupère le dernier mail ouvert (texte long) pour imiter le ton
       var nodes = qa('div.a3s');
       for (var i = nodes.length - 1; i >= 0; i--) {
         var t = (nodes[i].innerText || '').trim();
@@ -34,7 +34,6 @@
       catch(_){ box.innerText = (box.innerText||'') + (text||''); }
     }
 
-    // ---- UI (design violet arrondi) ----
     var css = `
 #hmwX{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35)}
 #hmwX .card{width:min(760px,96vw);background:#fff;border-radius:28px;box-shadow:0 22px 70px rgba(0,0,0,.25);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
@@ -54,6 +53,7 @@
 #hmwX .bar{display:flex;justify-content:space-between;align-items:center;padding:8px 18px 16px}
 #hmwX .btn{border:1px solid #e8e8f9;background:#fff;border-radius:12px;padding:8px 12px;cursor:pointer}
 #hmwX .btn.primary{background:#6b46ff;color:#fff;border-color:#6b46ff}
+#hmwX .btn.hidden{display:none}
 #hmwX .gear{border:none;background:#fff;font-size:18px;cursor:pointer}
 `;
     var style = d.createElement('style'); style.textContent = css;
@@ -170,4 +170,3 @@
     alert('Bookmarklet erreur: ' + (e.message||e));
   }
 })();
-</script>
