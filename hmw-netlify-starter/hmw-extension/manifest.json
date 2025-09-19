@@ -2,32 +2,27 @@
   "manifest_version": 3,
   "name": "Help me write",
   "version": "0.1.0",
-  "description": "Bouton toujours visible dans les composeurs (Gmail & co) qui ouvre hmw.js.",
+  "description": "Composer/Analyser pour Gmail",
   "icons": {
     "16": "icons/icons16.png",
     "38": "icons/icons38.png",
     "48": "icons/icons48.png",
     "128": "icons/icon128.png"
   },
-
-  "options_page": "options.html",
-
-  "permissions": ["storage"],
-
+  "action": {
+    "default_title": "Help me write"
+  },
+  "permissions": ["storage", "scripting", "activeTab"],
+  "host_permissions": [
+    "https://mail.google.com/*"
+  ],
   "content_scripts": [
     {
-      "matches": [
-        "https://mail.google.com/*",
-        "https://outlook.live.com/*",
-        "https://outlook.office.com/*",
-        "https://mail.yahoo.com/*",
-        "https://mail.proton.me/*",
-        "https://mail.zoho.com/*",
-        "https://*ionos*/*"
-      ],
+      "matches": ["https://mail.google.com/*"],
       "js": ["content.js"],
       "css": ["content.css"],
       "run_at": "document_idle"
     }
-  ]
+  ],
+  "options_page": "options.html"
 }
