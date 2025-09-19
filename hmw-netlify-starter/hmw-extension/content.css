@@ -1,0 +1,40 @@
+/* Bouton flottant façon “point rouge” */
+.hmw-fab {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 2147483000;
+  background: #7c4dff;       /* violet */
+  color: white;
+  width: 44px;
+  height: 44px;
+  border-radius: 22px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+  transition: transform .1s ease, box-shadow .2s ease;
+}
+.hmw-fab:hover { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(0,0,0,.28); }
+
+/* Quand plusieurs composeurs : un badge par composeur (optionnel) */
+.hmw-mini {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+  background: #7c4dff;
+  color: #fff;
+  font-size: 12px;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,.2);
+  cursor: pointer;
+}
+
+.hmw-hidden { display: none !important; }
