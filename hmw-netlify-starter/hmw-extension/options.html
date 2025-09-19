@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>HMW – Options</title>
+  <style>
+    body { font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding: 16px; }
+    label { display:block; margin: 12px 0 6px; font-weight: 600; }
+    input, button { font: inherit; padding: 8px 10px; }
+    input { width: 520px; max-width: 100%; }
+    .row { margin: 10px 0; }
+  </style>
+</head>
+<body>
+  <h1>Help Me Write – Options</h1>
+  <p>Colle ici l’URL de ta Netlify Function (ex: <code>https://…/generate</code>).</p>
+
+  <label>Endpoint HMW (Netlify Function)</label>
+  <input id="endpoint" placeholder="https://textooapp.netlify.app/.netlify/functions/generate" />
+
+  <div class="row">
+    <button id="save">Enregistrer</button>
+    <span id="msg"></span>
+  </div>
+
+  <script>
+    const LS = "HMW_WORKER_URL";
+    const input = document.getElementById("endpoint");
+    const msg = document.getElementById("msg");
+
+    // Charge depuis chrome.storage si dispo, sinon localStorage (hmw.js lit localStorage)
+    chrome.storage?.sync.get([LS], (res) => {
+      if (res && res[LS]) input.value = res[LS];
+      else input.value = localStorage.getItem(LS) || "";
+    });
+
+    document.getElementById("save").addEventListener("click", () => {
+      const v = input.value.trim();
+      if (!v) { msg.textContent = "URL vide."; return; }
+      // stocke des deux côtés pour être sûr
+      chrome.storage?.sync.set({ [LS]: v }, () => {
+        localStorage.setItem(LS, v);
+        msg.textContent = "Enregistré ✅";
+        setTimeout(()=>msg.textContent="", 1500);
+      });
+    });
+  </script>
+</body>
+</html>
