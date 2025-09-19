@@ -1,260 +1,239 @@
-// content.js — version robuste (pas d'alert bloquante)
-// - crée la pastille même si le composer n'est pas encore présent
-// - reattache si Gmail reconstruit le DOM
-// - sélecteurs FR/EN pour le composer
+// content.js — HMW (Gmail) : pastille -> menu -> panneau au-dessus du composer
 (() => {
   const log = (...a) => console.debug('[HMW]', ...a);
 
- // Lire l'endpoint (MV3 : storage.local) avec fallback localStorage
-const HMW_KEY = 'HMW_WORKER_URL';
-let ENDPOINT = '';
+  // --- Lecture endpoint (options) + fallback LS pour tests ---
+  let ENDPOINT = '';
+  chrome.storage?.sync?.get?.(['endpoint'], (res) => {
+    ENDPOINT = (res && res.endpoint) || localStorage.getItem('HMW_WORKER_URL') || '';
+    log('endpoint:', ENDPOINT || '(non défini)');
+  });
 
-async function loadEndpoint() {
-  try {
-    const data = await chrome.storage.local.get([HMW_KEY]);
-    ENDPOINT = (data && data[HMW_KEY]) || localStorage.getItem(HMW_KEY) || '';
-  } catch (e) {
-    ENDPOINT = localStorage.getItem(HMW_KEY) || '';
-  }
-  log('endpoint:', ENDPOINT || '(non défini)');
-}
-loadEndpoint();
+  // -------- utils DOM --------
+  const $  = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
 
-// Rester synchronisé si l’Options page modifie l’endpoint
-chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'local' && changes[HMW_KEY]) {
-    ENDPOINT = (changes[HMW_KEY].newValue || '').trim();
-    log('endpoint mis à jour:', ENDPOINT || '(vide)');
-  }
-});
-
-
-  // ---------- utilitaires DOM ----------
-  const $    = (sel, root=document) => root.querySelector(sel);
-  const $$   = (sel, root=document) => Array.from(root.querySelectorAll(sel));
-  const on   = (el, ev, fn) => el && el.addEventListener(ev, fn);
-
-  // Détection du composer (FR/EN) de Gmail
+  // Composer Gmail (FR/EN)
   function findComposerBox() {
-    // Gmail “Corps du message” (FR) ou “Message body” (EN)
-    return $(
-      'div[aria-label="Corps du message"], div[aria-label="Message body"]'
-    );
+    return $('div[aria-label="Corps du message"], div[aria-label="Message body"]');
   }
 
-  // Récupérer du texte du dernier mail affiché (pour imiter le ton)
+  // Dernier message affiché (pour ton/réponse ou analyse)
   function getLastMessageText() {
-    // Prend la dernière div d'email (Google change parfois les classes, on reste large)
     const blocks = $$('div.a3s, div[role="listitem"] .a3s');
     for (let i = blocks.length - 1; i >= 0; i--) {
-      const html = blocks[i].innerText || '';
-      if (html && html.trim().length > 40) return html.trim();
+      const t = (blocks[i].innerText || '').trim();
+      if (t.length > 40) return t;
     }
     return '';
   }
 
-  // Insérer du texte dans le composer (au caret)
+  // Insertion dans le composer
   function insertInComposer(text) {
     const box = findComposerBox();
-    if (!box) {
-      log('Composer introuvable, impossible d’insérer.');
-      return;
-    }
+    if (!box) return;
     box.focus();
-    try {
-      document.execCommand('insertText', false, text);
-    } catch {
-      // fallback
-      const rng = document.createRange();
-      rng.selectNodeContents(box);
-      rng.collapse(false);
-      const sel = window.getSelection();
-      sel.removeAllRanges();
-      sel.addRange(rng);
+    try { document.execCommand('insertText', false, text); }
+    catch {
+      const rng = document.createRange(); rng.selectNodeContents(box); rng.collapse(false);
+      const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(rng);
       document.execCommand('insertText', false, text);
     }
   }
 
-  // ---------- UI ----------
-  let bubble, modal, ctxInput, output, tabReply, tabExplain, submitBtn, insertBtn;
+  // Post-traitement : retirer une éventuelle ligne “Objet:” ou “Re: …” en tête
+  function stripSubjectHeader(text) {
+    if (!text) return text;
+    const lines = text.split(/\r?\n/);
+    while (lines.length && /^(objet\s*:|re\s*:)/i.test(lines[0].trim())) lines.shift();
+    return lines.join('\n').trim();
+  }
 
-  function ensureUI() {
-    if (bubble && modal) return true;
+  // ---------- UI elements ----------
+  let bubble, menu, panel, ctxInput, outArea, btnPrimary, btnInsert, tabReply, tabExplain;
+  let currentMode = 'reply'; // 'reply' | 'explain'
 
-    // Pastille
+  function ensureBubble() {
+    if (bubble) return;
     bubble = document.createElement('button');
+    bubble.id = 'hmw-bubble';
     bubble.title = 'Help me write';
-    bubble.setAttribute('id', 'hmw-bubble');
-    bubble.innerHTML = '✨';
+    bubble.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M11.5 3l1.4 3.7L16.5 8l-3.6 1.3L11.5 13l-1.4-3.7L6.5 8l3.6-1.3L11.5 3zM19 13l.9 2.4 2.1.7-2.1.8L19 19l-.9-2.1-2.1-.8 2.1-.7L19 13zM5 14l1.2 3 3 1.2-3 1.1L5 22l-1.2-2.7-3-1.1 3-1.2L5 14z"/>
+    </svg>`;
     document.body.appendChild(bubble);
 
-    // Panneau
-    modal = document.createElement('div');
-    modal.id = 'hmw-modal';
-    modal.innerHTML = `
+    // menu
+    menu = document.createElement('div');
+    menu.id = 'hmw-menu';
+    menu.innerHTML = `
+      <button data-mode="reply">✍️ Répondre</button>
+      <button data-mode="explain">🔎 Analyser</button>
+    `;
+    document.body.appendChild(menu);
+
+    bubble.addEventListener('click', (e) => {
+      const r = bubble.getBoundingClientRect();
+      menu.style.left = (r.left - 6) + 'px';
+      menu.style.top  = (r.top - 100) + 'px';
+      menu.style.display = 'block';
+      e.stopPropagation();
+    });
+    document.addEventListener('click', () => { menu.style.display = 'none'; });
+    menu.addEventListener('click', (e) => {
+      const b = e.target.closest('button'); if (!b) return;
+      currentMode = b.dataset.mode;
+      openPanel();
+      menu.style.display = 'none';
+    });
+  }
+
+  function ensurePanel() {
+    if (panel) return;
+    panel = document.createElement('div');
+    panel.id = 'hmw-panel';
+    panel.innerHTML = `
       <div class="hmw-card">
         <div class="hmw-tabs">
-          <button class="active" data-tab="reply">Répondre</button>
+          <button data-tab="reply" class="active">Répondre</button>
           <span class="sep">|</span>
           <button data-tab="explain">Analyser</button>
         </div>
+
+        <div class="hmw-badge-wrap"><div id="hmw-badge" class="hmw-badge">Réponse rapide</div></div>
+
         <div class="hmw-area">
           <textarea id="hmw-ctx" placeholder="Contexte…"></textarea>
           <div class="hmw-actions">
-            <button id="hmw-propose">Proposition</button>
+            <button id="hmw-propose" class="primary">Proposition</button>
           </div>
         </div>
+
         <div class="hmw-result">
           <textarea id="hmw-out" readonly></textarea>
           <div class="hmw-actions">
-            <button id="hmw-insert">Insérer</button>
-            <button id="hmw-close">Fermer</button>
+            <button id="hmw-insert" class="primary">Insérer</button>
+            <button id="hmw-close" class="ghost">Fermer</button>
           </div>
         </div>
       </div>
     `;
-    document.body.appendChild(modal);
+    document.body.appendChild(panel);
 
-    // Références
-    ctxInput  = $('#hmw-ctx', modal);
-    output    = $('#hmw-out', modal);
-    tabReply  = $('[data-tab="reply"]', modal);
-    tabExplain= $('[data-tab="explain"]', modal);
-    submitBtn = $('#hmw-propose', modal);
-    insertBtn = $('#hmw-insert', modal);
+    // refs
+    tabReply   = panel.querySelector('[data-tab="reply"]');
+    tabExplain = panel.querySelector('[data-tab="explain"]');
+    ctxInput   = panel.querySelector('#hmw-ctx');
+    outArea    = panel.querySelector('#hmw-out');
+    btnPrimary = panel.querySelector('#hmw-propose');
+    btnInsert  = panel.querySelector('#hmw-insert');
 
-    // Interactions
-    on(bubble, 'click', () => {
-      modal.classList.add('open');
-      ctxInput.focus();
+    // interactions
+    panel.querySelector('#hmw-close').addEventListener('click', () => panel.style.display='none');
+    tabReply.addEventListener('click', ()=>setMode('reply'));
+    tabExplain.addEventListener('click',()=>setMode('explain'));
+    btnInsert.addEventListener('click', () => {
+      const t = outArea.value.trim(); if (t) insertInComposer(t);
     });
 
-    on($('#hmw-close', modal), 'click', () => {
-      modal.classList.remove('open');
-    });
+    btnPrimary.addEventListener('click', onPrimary);
+  }
 
-    on(tabReply, 'click', () => setTab('reply'));
-    on(tabExplain, 'click', () => setTab('explain'));
+  function setMode(mode){
+    currentMode = mode;
+    tabReply.classList.toggle('active', mode==='reply');
+    tabExplain.classList.toggle('active', mode==='explain');
 
-    on(insertBtn, 'click', () => {
-      const txt = output.value.trim();
-      if (txt) insertInComposer(txt);
-    });
+    // Badge + libellé bouton
+    const badge = panel.querySelector('#hmw-badge');
+    if (mode==='reply'){
+      badge.textContent = 'Réponse rapide';
+      btnPrimary.textContent = 'Proposition';
+      ctxInput.placeholder = 'Contexte… (laissez vide ou écrivez “répond”)';
+    }else{
+      badge.textContent = 'Analyse rapide';
+      btnPrimary.textContent = 'Étudier';
+      ctxInput.placeholder = 'Contexte… (optionnel, l’e-mail affiché sera analysé)';
+    }
+  }
 
-    on(submitBtn, 'click', async () => {
-      try {
-        // Logique :
-        // - Si l’utilisateur clique “Répondre”: construire à partir du dernier mail
-        // - Si “Analyser”: expliquer le mail reçu
-        // - Si rien (juste “Contexte” + Proposition): rédiger avec ce contexte
+  async function onPrimary(){
+    if (!ENDPOINT){
+      showResult('⚠️ Configure d’abord l’endpoint dans les options de l’extension.');
+      return;
+    }
 
-        const mode = currentTab; // 'reply' | 'explain'
-        let payload;
+    // Build payload
+    let payload;
+    if (currentMode === 'explain'){
+      payload = { mode:'explain', context: getLastMessageText() || ctxInput.value.trim() };
+    } else {
+      const auto = !ctxInput.value.trim() || ctxInput.value.trim().toLowerCase()==='répond';
+      payload = auto ? {
+        mode:'reply',
+        autoTone:true,
+        context:getLastMessageText(),
+        tone:'direct',
+        signature:'Cordialement,\nNOM Prénom',
+        sourceMeta:{ /* ne fournit pas de subject pour éviter un “Objet” */ }
+      } : {
+        mode:'draft',
+        context:ctxInput.value.trim(),
+        tone:'direct',
+        signature:'Cordialement,\nNOM Prénom'
+      };
+    }
 
-        if (mode === 'reply' && (ctxInput.value.trim().toLowerCase() === 'répond' || !ctxInput.value.trim())) {
-          // Réponse automatique sur le ton du dernier mail
-          payload = {
-            mode: 'reply',
-            autoTone: true,
-            context: getLastMessageText(),
-            tone: 'direct',
-            signature: 'Cordialement,\nJonathan',
-            sourceMeta: {
-              subject: (document.title || '').replace(/ -.*$/, '')
-            }
-          };
-        } else if (mode === 'explain') {
-          payload = {
-            mode: 'explain',
-            context: getLastMessageText() || ctxInput.value.trim()
-          };
-        } else {
-          // Proposition depuis le contexte saisi
-          payload = {
-            mode: 'draft',
-            context: ctxInput.value.trim(),
-            tone: 'direct',
-            signature: 'Cordialement,\nJonathan'
-          };
-        }
+    // Call worker
+    try{
+      btnPrimary.disabled=true; const keep = btnPrimary.textContent;
+      btnPrimary.textContent = '…';
 
-        if (!ENDPOINT) {
-          console.warn('[HMW] Endpoint manquant. Va dans Options de l’extension pour le renseigner.');
-          showResult("⚠️ Configure d’abord l’endpoint dans les options de l’extension.");
-          return;
-        }
+      const res = await fetch(ENDPOINT,{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(payload)
+      });
 
-        submitBtn.disabled = true;
-        submitBtn.textContent = '…';
-
-        const res = await fetch(ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-
-        if (!res.ok) {
-          const t = await res.text().catch(()=>'');
-          showResult(`❌ Erreur (${res.status}). ${t || ''}`.trim());
-          return;
-        }
-        const data = await res.json().catch(()=> ({}));
-        showResult((data && (data.text || data.explanation)) || '—');
-
-      } catch (e) {
-        console.error('[HMW] submit error', e);
-        showResult('❌ Erreur réseau ou serveur.');
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Proposition';
+      if (!res.ok){
+        const t = await res.text().catch(()=> '');
+        showResult(`❌ Erreur (${res.status}). ${t||''}`.trim());
+        btnPrimary.textContent = keep; btnPrimary.disabled=false; return;
       }
-    });
+      const data = await res.json().catch(()=> ({}));
+      let text = (data && (data.text || data.explanation)) || '—';
 
-    return true;
+      // Retire “Objet:” si présent
+      text = stripSubjectHeader(text);
+
+      showResult(text);
+      btnPrimary.textContent = keep;
+    }catch(e){
+      console.error(e);
+      showResult('❌ Erreur réseau ou serveur.');
+    }finally{
+      btnPrimary.disabled=false;
+    }
   }
 
-  function showResult(txt) {
-    output.value = txt || '';
-    modal.classList.add('open');
-    output.scrollTop = 0;
+  function showResult(txt){
+    outArea.value = txt || '';
+    outArea.scrollTop = 0;
   }
 
-  let currentTab = 'reply';
-  function setTab(name) {
-    currentTab = name;
-    for (const b of $$('.hmw-tabs button', modal)) b.classList.remove('active');
-    $(`[data-tab="${name}"]`, modal).classList.add('active');
-  }
+  // Ouvre le panneau & le positionne juste au-dessus du composer
+  function openPanel(){
+    ensurePanel();
+    setMode(currentMode);
 
-  // ---------- Observateur pour Gmail ----------
-  function attachObservers() {
-    // Crée l’UI une fois
-    ensureUI();
+    const comp = findComposerBox();
+    const card = panel.querySelector('.hmw-card');
 
-    // Repositionner la pastille si besoin, et réagir quand un composer apparaît
-    const obs = new MutationObserver(() => {
-      ensureUI();
-      positionBubble();
-    });
-    obs.observe(document.body, { childList: true, subtree: true });
+    // Position par défaut : ancré au composer si dispo, sinon centré
+    if (comp){
+      const r = comp.getBoundingClientRect();
+      panel.style.width = Math.min(r.width, window.innerWidth-40)+'px';
+      panel.style.left  = Math.max(20, r.left) + 'px';
 
-    // Position au chargement
-    positionBubble();
-  }
-
-  function positionBubble() {
-    // On n’a pas besoin du composer pour afficher la pastille :
-    // on fixe en bas à droite de la fenêtre (CSS), rien à recalculer ici.
-    // Cette fonction existe pour évoluer si tu veux l’aligner sur le composer actif.
-  }
-
-  // Lancement
-  try {
-    ensureUI();
-    attachObservers();
-    log('Content script prêt.');
-  } catch (e) {
-    console.error('[HMW] init error', e);
-    // Plus d'alert bloquante.
-  }
-})();
+      // on le met 12px au-dessus du composer (sans voile)
+      // si pas assez de place, on le met juste en dessous
+      requ
