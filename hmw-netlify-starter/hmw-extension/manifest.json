@@ -2,27 +2,31 @@
   "manifest_version": 3,
   "name": "Help me write",
   "version": "0.1.0",
-  "description": "Bouton flottant dans les composeurs d’emails (Gmail, etc.)",
+  "description": "Bouton toujours visible dans les composeurs (Gmail & co) qui ouvre hmw.js.",
   "icons": {
-    "16": "icons/icon16.png",
-    "32": "icons/icon32.png",
-    "48": "icons/icon48.png",
+    "16": "icons/icons16.png",
+    "38": "icons/icons38.png",
+    "48": "icons/icons48.png",
     "128": "icons/icon128.png"
   },
-  "action": {
-    "default_title": "Help me write"
-  },
-  "permissions": [],
+
+  "options_page": "options.html",
+
+  "permissions": ["storage"],
+
   "content_scripts": [
     {
       "matches": [
         "https://mail.google.com/*",
         "https://outlook.live.com/*",
         "https://outlook.office.com/*",
-        "https://*.yahoo.*/*",
-        "https://*.proton.me/*"
+        "https://mail.yahoo.com/*",
+        "https://mail.proton.me/*",
+        "https://mail.zoho.com/*",
+        "https://*ionos*/*"
       ],
       "js": ["content.js"],
+      "css": ["content.css"],
       "run_at": "document_idle"
     }
   ]
