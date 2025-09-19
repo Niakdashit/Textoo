@@ -1,33 +1,24 @@
 <!doctype html>
-<html lang="fr">
+<html>
   <head>
     <meta charset="utf-8" />
-    <title>Help Me Write – Options</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="content.css" />
+    <title>Help Me Write — Options</title>
     <style>
-      body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:24px}
-      h1{font-size:22px;margin:0 0 16px}
-      label{display:block;margin:12px 0 6px;color:#4b5563}
-      input[type="text"]{width:100%;max-width:720px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px}
-      button{margin-top:12px;border:none;background:#6d28d9;color:#fff;padding:8px 14px;border-radius:10px;cursor:pointer}
-      #msg{display:inline-block;margin-left:10px;font-size:13px;color:#065f46}
+      body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu; padding:24px;}
+      label{display:block; margin:10px 0 6px; color:#444}
+      input{width:560px; max-width:90vw; padding:10px 12px; border:1px solid #ddd; border-radius:8px;}
+      button{margin-top:10px; padding:8px 12px; border:1px solid #5a3ef0; background:#5a3ef0; color:#fff; border-radius:8px; cursor:pointer;}
+      #msg{margin-left:10px; color:#5a3ef0}
     </style>
   </head>
   <body>
     <h1>Help Me Write – Options</h1>
-
     <p>Colle ici l’URL de ta Netlify Function (ex: <code>https://…/generate</code>).</p>
-
     <label for="endpoint">Endpoint HMW (Netlify Function)</label>
-    <input id="endpoint" type="text" placeholder="https://…/generate" />
-
+    <input id="endpoint" type="url" placeholder="https://…/generate"/>
     <div>
-      <button id="save">Enregistrer</button>
-      <span id="msg"></span>
+      <button id="save">Enregistrer</button><span id="msg"></span>
     </div>
-
-    <!-- IMPORTANT : aucun script inline en MV3 -->
     <script src="options.js"></script>
   </body>
 </html>
