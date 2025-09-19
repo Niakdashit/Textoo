@@ -5,12 +5,29 @@
 (() => {
   const log = (...a) => console.debug('[HMW]', ...a);
 
-  // Lire l'endpoint depuis les options (stockage sync)
-  let ENDPOINT = '';
-  chrome.storage.sync.get(['endpoint'], (res) => {
-    ENDPOINT = (res && res.endpoint) || '';
-    log('endpoint:', ENDPOINT || '(non défini)');
-  });
+ // Lire l'endpoint (MV3 : storage.local) avec fallback localStorage
+const HMW_KEY = 'HMW_WORKER_URL';
+let ENDPOINT = '';
+
+async function loadEndpoint() {
+  try {
+    const data = await chrome.storage.local.get([HMW_KEY]);
+    ENDPOINT = (data && data[HMW_KEY]) || localStorage.getItem(HMW_KEY) || '';
+  } catch (e) {
+    ENDPOINT = localStorage.getItem(HMW_KEY) || '';
+  }
+  log('endpoint:', ENDPOINT || '(non défini)');
+}
+loadEndpoint();
+
+// Rester synchronisé si l’Options page modifie l’endpoint
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes[HMW_KEY]) {
+    ENDPOINT = (changes[HMW_KEY].newValue || '').trim();
+    log('endpoint mis à jour:', ENDPOINT || '(vide)');
+  }
+});
+
 
   // ---------- utilitaires DOM ----------
   const $    = (sel, root=document) => root.querySelector(sel);
