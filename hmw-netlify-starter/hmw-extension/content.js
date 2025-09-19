@@ -51,6 +51,24 @@
     return '';
   }
 
+  /* ---------- Post-traitement texte ---------- */
+  function stripSubject(raw){
+    // enlève une ligne d'objet éventuelle au début : "Objet : ..." (espaces, NBSP, etc.)
+    return raw.replace(/^\s*(objet[\s\u00A0]*:[^\n]*\n+)/i, '');
+  }
+  function paragraphize(raw){
+    // si aucun double saut de ligne, on aère après . ? !
+    if (/\n{2,}/.test(raw)) return raw;
+    const parts = raw.split(/(?<=[\.\?\!])\s+(?=[A-ZÀÂÄÇÉÈÊËÎÏÔÖÙÛÜŸ])/g);
+    return parts.join('\n\n');
+  }
+  function emailFormat(raw){
+    let t = (raw||'').replace(/\r\n/g,'\n').trim();
+    t = stripSubject(t);
+    t = paragraphize(t);
+    return t.trim();
+  }
+
   /* ---------- Affichage de la box ---------- */
   function showBox(mode){ // 'reply' | 'analyze'
     $('#hmw-box')?.remove();
@@ -83,7 +101,6 @@
     document.body.appendChild(box);
     placeBox(box);
 
-    // suivre les mutations/redimensionnements pour rester collé
     const reflow = ()=> placeBox(box);
     const mo = new MutationObserver(reflow);
     mo.observe(document.body,{childList:true,subtree:true});
@@ -105,7 +122,7 @@
     on(btnProp,'click', async ()=>{
       const context = ctx.value.trim();
       const payload = (mode==='reply')
-        ? { mode:'draft', context, tone:'direct', signature:'NOM Prénom' }
+        ? { mode:'draft', context, tone:'direct', signature:'Cordialement,\nNOM Prénom' }
         : { mode:'analyze', context };
       await runCall(payload, {box, ctx, chip, out});
     });
@@ -113,7 +130,7 @@
     // RÉPONSE/ANALYSE RAPIDE (sans contexte)
     on(btnQuick,'click', async ()=>{
       const payload = (mode==='reply')
-        ? { mode:'reply', autoTone:true, context:lastMessageText(), tone:'direct', signature:'NOM Prénom' }
+        ? { mode:'reply', autoTone:true, context:lastMessageText(), tone:'direct', signature:'Cordialement,\nNOM Prénom' }
         : { mode:'analyze', context:lastMessageText() };
       await runCall(payload, {box, ctx, chip, out});
     });
@@ -149,7 +166,6 @@
       return;
     }
     try{
-      // désactiver temporairement les actions
       $$('#hmw-actions .hmw-link', box).forEach(b=>b.disabled=true);
 
       const res = await fetch(ENDPOINT, {
@@ -164,16 +180,17 @@
         text = `❌ ${res.status} – ${await res.text().catch(()=> '')}`;
       }
 
-      // afficher résultat + chip (contexte abrégé)
-      if(ctx.value.trim()){
-        chip.textContent = ctx.value.trim();
-      }else{
-        chip.textContent = (payload.mode==='reply' ? 'Réponse rapide' : 'Analyse rapide');
-      }
+      // Mise en forme "mail" (sans Objet + paragraphes)
+      text = emailFormat(text);
+
+      // Affichage dans le même bloc
+      chip.textContent = ctx.value.trim()
+        ? ctx.value.trim()
+        : (payload.mode==='reply' ? 'Réponse rapide' : 'Analyse rapide');
+
       out.textContent = text || '—';
       box.classList.add('has-result');
 
-      // re-position (hauteur change)
       requestAnimationFrame(()=> placeBox(box));
     }catch(e){
       console.error('[HMW] run', e);
