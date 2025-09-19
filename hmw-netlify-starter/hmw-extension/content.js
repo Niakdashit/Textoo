@@ -1,266 +1,232 @@
-// Help Me Write – Gmail content script
+// content.js — compact UI, robust endpoint read (sync/local/localStorage), no overlay.
+
 (() => {
+  const $  = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+  const on = (el, ev, fn) => el && el.addEventListener(ev, fn);
   const log = (...a) => console.debug('[HMW]', ...a);
 
-  /* ----------- Endpoint depuis chrome.storage ----------- */
+  // ---------- Endpoint handling ----------
   let ENDPOINT = '';
-  chrome.storage.sync.get(['endpoint'], (res) => {
-    ENDPOINT = (res && res.endpoint) || '';
-    log('Endpoint:', ENDPOINT || '(non défini)');
-  });
 
-  /* ----------------- Utilitaires DOM -------------------- */
-  const $  = (sel, root = document) => root.querySelector(sel);
-  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
-  const on = (el, ev, fn) => el && el.addEventListener(ev, fn);
-
-  function findComposerBox() {
-    // FR / EN
-    return $('div[aria-label="Corps du message"], div[aria-label="Message body"]');
+  async function readFromSync() {
+    return new Promise(res => {
+      try { chrome.storage.sync.get(['endpoint'], v => res((v && (v.endpoint||'')).trim())); }
+      catch { res(''); }
+    });
+  }
+  async function readFromLocal() {
+    return new Promise(res => {
+      try { chrome.storage.local.get(['endpoint'], v => res((v && (v.endpoint||'')).trim())); }
+      catch { res(''); }
+    });
+  }
+  function readFromLocalStorage() {
+    try { return (localStorage.getItem('HMW_WORKER_URL') || '').trim(); }
+    catch { return ''; }
   }
 
-  function getLastMessageText() {
-    const nodes = $$('div.a3s, div[role="listitem"] .a3s');
-    for (let i = nodes.length - 1; i >= 0; i--) {
-      const t = (nodes[i].innerText || '').trim();
-      if (t && t.replace(/\s+/g, ' ').length > 40) return t;
-    }
+  function looksValid(u) {
+    return /^https?:\/\//i.test(u);
+  }
+
+  async function getEndpoint() {
+    if (looksValid(ENDPOINT)) return ENDPOINT;
+
+    const c1 = await readFromSync();
+    if (looksValid(c1)) return (ENDPOINT = c1);
+
+    const c2 = await readFromLocal();
+    if (looksValid(c2)) return (ENDPOINT = c2);
+
+    const c3 = readFromLocalStorage();
+    if (looksValid(c3)) return (ENDPOINT = c3);
+
     return '';
   }
 
+  // Live update if options change
+  try {
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if ((area === 'sync' || area === 'local') && changes.endpoint) {
+        const v = (changes.endpoint.newValue || '').trim();
+        if (looksValid(v)) ENDPOINT = v;
+      }
+    });
+  } catch {} // not fatal in non-Chrome contexts
+
+  // ---------- Gmail helpers ----------
+  function findComposerBox() {
+    return $('div[aria-label="Corps du message"], div[aria-label="Message body"]');
+  }
+  function getLastMessageText() {
+    const blocks = $$('div.a3s, div[role="listitem"] .a3s');
+    for (let i = blocks.length - 1; i >= 0; i--) {
+      const t = (blocks[i].innerText || '').trim();
+      if (t.length > 40) return t;
+    }
+    return '';
+  }
   function insertInComposer(text) {
     const box = findComposerBox();
-    if (!box) { log('Composer introuvable'); return; }
+    if (!box || !text) return;
     box.focus();
-    try {
-      document.execCommand('insertText', false, text);
-    } catch {
+    try { document.execCommand('insertText', false, text); }
+    catch {
       const r = document.createRange();
       r.selectNodeContents(box); r.collapse(false);
       const s = getSelection(); s.removeAllRanges(); s.addRange(r);
       document.execCommand('insertText', false, text);
     }
   }
-
-  function debounce(fn, ms = 120) {
-    let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
+  function placeCardAboveComposer(el) {
+    const box = findComposerBox();
+    if (!box) { el.style.position='fixed'; el.style.top='84px'; el.style.left='50%'; el.style.transform='translateX(-50%)'; return; }
+    const r = box.getBoundingClientRect();
+    el.style.position='fixed';
+    el.style.left = `${Math.max(20, r.left)}px`;
+    el.style.top  = `${Math.max(60, r.top - 150)}px`;
+    el.style.transform='none';
   }
 
-  /* ------------------ Interface UI ---------------------- */
-  let bubble, chooser, card;
-  let mode = null; // 'reply' | 'analyze'
-  let ctxInput, output, quickBtn, primaryBtn, insertBtn, closeBtn, titleEl;
+  // ---------- FAB + chooser ----------
+  let fab, chooser, card, mode = null; // 'reply' | 'explain'
 
-  function ensureBubble() {
-    if (bubble) return;
-    bubble = document.createElement('button');
-    bubble.id = 'hmw-bubble';
-    bubble.setAttribute('title', 'Help me write');
-    bubble.innerHTML = '✨';
-    document.body.appendChild(bubble);
+  function ensureFab() {
+    if (fab) return;
+    fab = document.createElement('button');
+    fab.id = 'hmw-fab';
+    fab.title = 'Help me write';
+    fab.textContent = '✨';
+    document.body.appendChild(fab);
 
     chooser = document.createElement('div');
     chooser.id = 'hmw-chooser';
     chooser.innerHTML = `
       <button data-mode="reply">Répondre</button>
-      <button data-mode="analyze">Analyser</button>
+      <button data-mode="explain">Analyser</button>
     `;
     document.body.appendChild(chooser);
 
-    on(bubble, 'click', () => {
-      chooser.style.display = chooser.style.display === 'none' ? 'grid' : 'none';
-    });
-    on(document, 'click', (e) => {
-      if (!chooser.contains(e.target) && e.target !== bubble) {
-        chooser.style.display = 'none';
-      }
-    });
-
-    chooser.querySelectorAll('button').forEach(btn => {
-      on(btn, 'click', () => {
-        chooser.style.display = 'none';
-        openCard(btn.dataset.mode);
-      });
+    on(fab,'click',()=> chooser.classList.toggle('open'));
+    on(chooser,'click',e=>{
+      const b = e.target.closest('button'); if (!b) return;
+      mode = b.dataset.mode; chooser.classList.remove('open');
+      openCard(mode);
     });
   }
 
-  function buildCard() {
-    if (card) return;
+  // ---------- Card ----------
+  function openCard(which) {
+    if (card) card.remove();
     card = document.createElement('div');
-    card.id = 'hmw-card';
+    card.className = 'hmw-card';
     card.innerHTML = `
-      <div class="hmw-header">
-        <div class="hmw-title" id="hmw-title">Rédaction</div>
-        <button class="hmw-quick" id="hmw-quick">Réponse rapide</button>
+      <div class="hmw-head">
+        <div class="hmw-title">${which === 'reply' ? 'Rédaction' : 'Analyse'}</div>
       </div>
 
-      <div class="hmw-field">
-        <textarea id="hmw-context" rows="2"
-          placeholder="Contexte…"></textarea>
-        <div class="hmw-actions">
-          <button class="hmw-primary" id="hmw-primary" disabled>Proposition</button>
+      <div class="hmw-row">
+        <textarea id="hmw-input" class="hmw-input"
+          placeholder="${which==='reply'
+            ? 'Contexte… (laisse vide ou écris “répond” pour une réponse automatique)'
+            : 'Contexte… (facultatif, l’email affiché sera analysé)'}"></textarea>
+
+        <div class="hmw-actions-top">
+          ${which==='reply'
+            ? `<button id="hmw-quick"   class="hmw-btn ghost">Réponse rapide</button>
+               <button id="hmw-propose" class="hmw-btn" disabled>Proposition</button>`
+            : `<button id="hmw-quick"   class="hmw-btn ghost">Analyse rapide</button>
+               <button id="hmw-propose" class="hmw-btn" disabled>Étudier</button>`}
         </div>
       </div>
 
-      <div id="hmw-output" placeholder=""></div>
+      <div id="hmw-out" class="hmw-output" aria-live="polite"></div>
+      <div id="hmw-warn" class="hmw-warning" style="display:none;">⚠️ Configure l’endpoint dans les options.</div>
 
-      <div class="hmw-footer">
-        <button class="hmw-link" id="hmw-insert">Insérer</button>
-        <button class="hmw-link" id="hmw-close">Fermer</button>
+      <div class="hmw-bottom">
+        <button id="hmw-close" class="hmw-secondary">Fermer</button>
+        <button id="hmw-insert" class="hmw-primary">Insérer</button>
       </div>
     `;
     document.body.appendChild(card);
+    placeCardAboveComposer(card);
 
-    // refs
-    titleEl   = $('#hmw-title',  card);
-    quickBtn  = $('#hmw-quick',  card);
-    ctxInput  = $('#hmw-context',card);
-    primaryBtn= $('#hmw-primary',card);
-    output    = $('#hmw-output', card);
-    insertBtn = $('#hmw-insert', card);
-    closeBtn  = $('#hmw-close',  card);
+    const input   = $('#hmw-input', card);
+    const out     = $('#hmw-out', card);
+    const quick   = $('#hmw-quick', card);
+    const propose = $('#hmw-propose', card);
+    const btnIns  = $('#hmw-insert', card);
+    const btnCls  = $('#hmw-close', card);
+    const warn    = $('#hmw-warn', card);
 
-    // logic
-    on(closeBtn, 'click', () => card.style.display = 'none');
-    on(insertBtn, 'click', () => {
-      const txt = (output.textContent || '').trim();
-      if (txt) insertInComposer(txt);
-    });
-
-    // auto height textarea
-    const autoGrow = () => {
-      ctxInput.style.height = 'auto';
-      ctxInput.style.height = Math.min(180, ctxInput.scrollHeight) + 'px';
-      setTimeout(positionCard, 0);
+    // auto-resize (compact)
+    const autoresize = () => {
+      input.style.height = 'auto';
+      input.style.height = Math.min(200, input.scrollHeight) + 'px';
     };
-    on(ctxInput, 'input', () => {
-      primaryBtn.disabled = !ctxInput.value.trim();
-      autoGrow();
-    });
-    autoGrow();
+    on(input,'input',()=>{ autoresize(); propose.disabled = !input.value.trim(); });
+    setTimeout(autoresize, 0);
 
-    on(quickBtn, 'click', () => runAction({ quick: true }));
-    on(primaryBtn, 'click', () => runAction({ quick: false }));
-  }
+    on(btnCls,'click',()=> card.remove());
+    on(btnIns,'click',()=> insertInComposer(out.textContent.trim()));
 
-  function labelize() {
-    if (mode === 'reply') {
-      titleEl.textContent = 'Rédaction';
-      quickBtn.textContent = 'Réponse rapide';
-      ctxInput.placeholder = 'Contexte… (laisse vide ou écris “répond” pour répondre automatiquement)';
-      primaryBtn.textContent = 'Proposition';
-    } else {
-      titleEl.textContent = 'Analyse';
-      quickBtn.textContent = 'Analyse rapide';
-      ctxInput.placeholder = "Contexte… (facultatif, l’email actuel sera analysé)";
-      primaryBtn.textContent = 'Étudier';
-    }
-  }
+    // actions
+    on(quick,'click',()=> handleAction({kind:'quick'}));
+    on(propose,'click',()=> handleAction({kind:'propose', ctx: input.value.trim()}));
 
-  function openCard(chosenMode) {
-    mode = chosenMode; buildCard(); labelize();
-    ctxInput.value = ''; primaryBtn.disabled = true; output.textContent = '';
-    placeCardAboveComposer();
-    card.style.display = 'block';
-    ctxInput.focus();
-  }
+    // reposition when Gmail reflows
+    const obs = new MutationObserver(()=> placeCardAboveComposer(card));
+    obs.observe(document.body,{childList:true,subtree:true});
 
-  /* ------ Positionner la carte au-dessus du composer ------ */
-  function placeCardAboveComposer() {
-    const box = findComposerBox();
-    if (!box) { // fallback: centrer
-      const vw = Math.min(860, window.innerWidth - 24);
-      card.style.width = vw + 'px';
-      card.style.left = ((window.innerWidth - vw) / 2) + 'px';
-      card.style.top  = (window.scrollY + 90) + 'px';
-      return;
-    }
-    const r = box.getBoundingClientRect();
-    const vw = Math.min(r.width, 860, window.innerWidth - 24);
-    card.style.width = vw + 'px';
-    card.style.left  = (window.scrollX + r.left + (r.width - vw)/2) + 'px';
-    // juste au-dessus du composer avec 10px d’air
-    const top = window.scrollY + r.top - card.offsetHeight - 10;
-    card.style.top  = Math.max(10 + window.scrollY, top) + 'px';
-  }
-  const positionCard = debounce(placeCardAboveComposer, 50);
-  window.addEventListener('resize', positionCard);
-  window.addEventListener('scroll', positionCard, { passive: true });
+    async function handleAction({kind, ctx=''}) {
+      const ep = await getEndpoint();
+      if (!looksValid(ep)) { warn.style.display = 'block'; return; }
+      warn.style.display = 'none';
 
-  /* -------------------- Actions IA ----------------------- */
-  async function runAction({ quick }) {
-    try {
-      if (!ENDPOINT) { output.textContent = '⚠️ Configure l’endpoint dans les options.'; return; }
-
-      const last = getLastMessageText();
+      const base = { tone: 'direct', signature: 'NOM Prénom' };
       let payload;
 
-      if (mode === 'reply') {
-        if (quick || !ctxInput.value.trim() || ctxInput.value.trim().toLowerCase() === 'répond') {
+      if (which === 'reply') {
+        if (kind === 'quick' || ctx.toLowerCase() === 'répond' || ctx === '') {
           payload = {
+            ...base,
             mode: 'reply',
             autoTone: true,
-            context: last,
-            tone: 'direct',
-            signature: 'Cordialement,\nNOM Prénom',
-            sourceMeta: { subject: '' }
+            context: getLastMessageText(),
+            sourceMeta: { subject: '', fromEmail: '' }
           };
         } else {
-          payload = {
-            mode: 'draft',
-            context: ctxInput.value.trim(),
-            tone: 'direct',
-            signature: 'Cordialement,\nNOM Prénom'
-          };
+          payload = { ...base, mode: 'draft', context: ctx };
         }
-      } else { // analyze
-        if (quick || !ctxInput.value.trim()) {
-          payload = { mode: 'explain', context: last };
-        } else {
-          // on demande une explication guidée par le contexte (et non une reformulation)
-          payload = { mode: 'explain', context: ctxInput.value.trim() + '\n\n— Texte reçu —\n' + last };
-        }
-      }
-
-      // état UI
-      const oldQuick = quickBtn.textContent;
-      const oldPrim  = primaryBtn.textContent;
-      if (quick) { quickBtn.textContent = '…'; quickBtn.disabled = true; }
-      else       { primaryBtn.textContent = '…'; primaryBtn.disabled = true; }
-
-      const res = await fetch(ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (!res.ok) {
-        const t = await res.text().catch(()=> '');
-        output.textContent = `❌ Erreur ${res.status}. ${t}`;
       } else {
-        const data = await res.json().catch(()=> ({}));
-        const txt = (data.text || data.explanation || '').trim();
-        output.textContent = txt || '—';
+        const emailText = getLastMessageText();
+        if (kind === 'quick' || !ctx) {
+          payload = { mode: 'explain', context: emailText };
+        } else {
+          payload = { mode: 'explain', context: `${emailText}\n\nContexte:\n${ctx}` };
+        }
       }
-    } catch (e) {
-      console.error(e);
-      output.textContent = '❌ Erreur réseau/serveur.';
-    } finally {
-      quickBtn.disabled = false; primaryBtn.disabled = !ctxInput.value.trim();
-      quickBtn.textContent = (mode === 'reply') ? 'Réponse rapide' : 'Analyse rapide';
-      primaryBtn.textContent = (mode === 'reply') ? 'Proposition' : 'Étudier';
-      positionCard();
+
+      try {
+        quick.disabled = true; propose.disabled = true;
+        const res  = await fetch(ep, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+        const data = await res.json().catch(()=> ({}));
+        out.textContent = (data && (data.text || data.explanation)) || '—';
+      } catch {
+        out.textContent = '❌ Erreur réseau.';
+      } finally {
+        quick.disabled = false; propose.disabled = !input.value.trim();
+      }
     }
   }
 
-  /* --------- Observateurs pour rester présents ---------- */
-  function mount() {
-    ensureBubble(); buildCard(); // carte cachée tant qu’on ne choisit pas
-    // Repositionner si Gmail modifie le DOM
-    const obs = new MutationObserver(positionCard);
-    obs.observe(document.body, { childList: true, subtree: true });
-    log('HMW prêt.');
+  // ---------- Boot ----------
+  function boot() {
+    ensureFab();
+    const obs = new MutationObserver(()=> ensureFab());
+    obs.observe(document.body,{childList:true,subtree:true});
+    log('ready');
   }
-
-  try { mount(); } catch (e) { console.error('[HMW] init', e); }
+  try { boot(); } catch(e){ console.error('[HMW]', e); }
 })();
