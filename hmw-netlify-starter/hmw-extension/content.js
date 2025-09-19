@@ -1,34 +1,142 @@
-// content.js — Gmail HMW (UI mono-champ, propre & épuré)
-// - pastille -> choix (Répondre | Analyser)
-// - un seul champ : le contexte, puis le résultat remplace l’éditeur
-//   (la ligne de contexte reste affichée, grisée, tronquée à 1 ligne)
-// - pas d’overlay sombre, panel posé au-dessus du composer
-// - correction race de lecture endpoint (await chrome.storage.sync)
-// - signature générique "NOM Prénom", pas d'objet dans les drafts générés
+// === HMW Gmail — mini composer helper (boîte compacte) ===
+// - 1 seul "champ": saisie de contexte, puis affiche le résultat dans la même boite
+// - Contexte récapitulé sur 1 ligne (chip) une fois la réponse affichée
+// - Boutons: Proposition | Réponse rapide | Insérer
+// - Pas d’overlay, style épuré, largeur fixe contrôlée ici
 
 (() => {
-  const log = (...a) => console.debug('[HMW]', ...a);
+  const BOX_WIDTH = 640; // << largeur exacte souhaitée (px). Tu peux réduire à 560 si besoin.
 
-  // ------- helpers -------
-  const $ = (sel, root = document) => root.querySelector(sel);
-  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
-  const on = (el, ev, fn) => el && el.addEventListener(ev, fn);
+  const log = (...a) => console.debug('[HMW]', ...a);
+  let ENDPOINT = '';
+  let MODE = 'reply'; // défini par la pastille/menu ailleurs; par défaut 'reply'
+
+  // --- lecture endpoint (et écoute des mises à jour) ---
+  function loadEndpoint(cb){
+    chrome.storage.sync.get(['endpoint', 'mode'], (res) => {
+      ENDPOINT = (res && res.endpoint) || '';
+      if (res && res.mode) MODE = res.mode; // si tu stockes le choix du menu "Répondre/Analyser"
+      log('endpoint:', ENDPOINT || '(non défini)', 'mode:', MODE);
+      cb && cb();
+    });
+  }
+  chrome.storage.onChanged?.addListener((chg, area) => {
+    if (area === 'sync' && chg.endpoint) ENDPOINT = chg.endpoint.newValue || '';
+  });
+
+  // --- utilitaires DOM ---
+  const $  = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
 
   function findComposerBox() {
-    // FR/EN
+    // Gmail (FR/EN) "Corps du message" / "Message body"
     return $('div[aria-label="Corps du message"], div[aria-label="Message body"]');
   }
-
-  function getLastMessageText() {
-    // Dernier bloc visible suffisamment long
+  function findComposerContainer() {
+    // bloc qui contient le composer (pour ancrer notre box juste au-dessus)
+    const box = findComposerBox();
+    return box ? box.closest('div[role="textbox"]')?.parentElement?.parentElement : null;
+  }
+  function lastMessageText() {
     const blocks = $$('div.a3s, div[role="listitem"] .a3s');
     for (let i = blocks.length - 1; i >= 0; i--) {
-      const txt = (blocks[i].innerText || '').trim();
-      if (txt.length > 40) return txt;
+      const t = (blocks[i].innerText || '').trim();
+      if (t.length > 40) return t;
     }
     return '';
   }
 
+  // --- construction UI ---
+  let root, chip, ta, result, actions, copyBtn, closeBtn;
+
+  function buildBox() {
+    if (root) return root;
+
+    root = document.createElement('div');
+    root.id = 'hmw-box';
+    root.style.width = BOX_WIDTH + 'px';
+
+    root.innerHTML = `
+      <div class="hmw-title" id="hmw-title">Rédaction</div>
+      <div class="hmw-area">
+        <div class="hmw-chip" id="hmw-chip" title="Contexte (copiable)"></div>
+        <textarea id="hmw-ta" placeholder="Contexte… (laisse vide ou écris “répond” pour une réponse automatique)"></textarea>
+        <div id="hmw-result"></div>
+        <div id="hmw-copy" title="Copier">📋</div>
+      </div>
+
+      <div id="hmw-actions">
+        <button class="hmw-link" id="hmw-propose">Proposition</button>
+        <div class="hmw-sep"></div>
+        <button class="hmw-link" id="hmw-quick">Réponse rapide</button>
+        <div class="hmw-sep"></div>
+        <button class="hmw-link" id="hmw-insert">Insérer</button>
+      </div>
+
+      <button id="hmw-close" title="Fermer">✕</button>
+    `;
+    document.body.appendChild(root);
+
+    // refs
+    chip    = $('#hmw-chip', root);
+    ta      = $('#hmw-ta', root);
+    result  = $('#hmw-result', root);
+    actions = $('#hmw-actions', root);
+    copyBtn = $('#hmw-copy', root);
+    closeBtn= $('#hmw-close', root);
+
+    // interactions
+    copyBtn.addEventListener('click', () => {
+      const txt = (root.classList.contains('has-result') ? chip.textContent : ta.value) || '';
+      if (!txt) return;
+      navigator.clipboard?.writeText(txt);
+      copyBtn.textContent = '✓';
+      setTimeout(() => (copyBtn.textContent = '📋'), 900);
+    });
+
+    closeBtn.addEventListener('click', () => {
+      root.remove();
+      root = null;
+    });
+
+    $('#hmw-propose', root).addEventListener('click', () => handleSubmit('draft'));
+    $('#hmw-quick',   root).addEventListener('click', () => handleSubmit(MODE === 'explain' ? 'explain' : 'reply', true));
+    $('#hmw-insert',  root).addEventListener('click', () => {
+      const txt = (result.textContent || '').trim();
+      if (!txt) return;
+      insertInComposer(txt);
+    });
+
+    return root;
+  }
+
+  function setTitle() {
+    const t = $('#hmw-title', root);
+    t.textContent = (MODE === 'explain') ? 'Analyse' : 'Rédaction';
+    $('#hmw-quick', root).textContent = (MODE === 'explain') ? 'Analyse rapide' : 'Réponse rapide';
+    $('#hmw-ta', root).placeholder = (MODE === 'explain')
+      ? 'Contexte… (facultatif, l’email actuel sera analysé)'
+      : 'Contexte… (laisse vide ou écris “répond” pour une réponse automatique)';
+  }
+
+  // --- positionnement au-dessus du composer ---
+  function placeBox() {
+    const comp = findComposerBox();
+    if (!comp) return;
+
+    const r = comp.getBoundingClientRect();
+    const scrollY = window.scrollY || document.documentElement.scrollTop;
+
+    let left = r.left + window.scrollX;          // aligner sur le bord gauche du composer
+    // Si la boîte dépasse l'écran à droite, on la ramène
+    const maxLeft = document.documentElement.clientWidth - BOX_WIDTH - 16;
+    if (left > maxLeft) left = Math.max(16, maxLeft);
+
+    root.style.top  = (r.top + scrollY - 90) + 'px'; // ~90px au-dessus du corps
+    root.style.left = left + 'px';
+  }
+
+  // --- insertion dans le composer (au caret) ---
   function insertInComposer(text) {
     const box = findComposerBox();
     if (!box) return;
@@ -46,238 +154,42 @@
     }
   }
 
-  // ------- storage (endpoint) -------
-  async function loadEndpoint() {
-    try {
-      const res = await chrome.storage.sync.get({ endpoint: '' });
-      const url = (res?.endpoint || '').trim();
-      log('endpoint:', url || '(non défini)');
-      return url;
-    } catch {
-      return '';
-    }
-  }
-
-  // ------- UI state -------
-  let bubble, chooser, panel, mode; // mode: 'reply' | 'explain'
-  let ctxInput, ctxLine, resultBox, actionQuickBtn, actionCtxBtn, insertBtn, closeBtn, warnRow;
-
-  function makeBubble() {
-    if (bubble) return;
-    bubble = document.createElement('button');
-    bubble.id = 'hmw-bubble';
-    bubble.title = 'Help me write';
-    bubble.innerHTML = '<span class="hmw-spark">✦</span>';
-    document.body.appendChild(bubble);
-
-    on(bubble, 'click', () => {
-      toggleChooser(true);
-      placeChooser();
-    });
-  }
-
-  function makeChooser() {
-    if (chooser) return;
-    chooser = document.createElement('div');
-    chooser.id = 'hmw-chooser';
-    chooser.innerHTML = `
-      <button data-act="reply">Répondre</button>
-      <button data-act="explain">Analyser</button>
-    `;
-    document.body.appendChild(chooser);
-
-    chooser.addEventListener('click', (e) => {
-      const btn = e.target.closest('button[data-act]');
-      if (!btn) return;
-      mode = btn.dataset.act;
-      toggleChooser(false);
-      openPanel(mode);
-    });
-  }
-
-  function toggleChooser(show) {
-    if (!chooser) return;
-    chooser.classList.toggle('open', !!show);
-  }
-
-  function placeChooser() {
-    const box = findComposerBox();
-    if (!box) return;
-    const r = box.getBoundingClientRect();
-    chooser.style.left = Math.round(r.left + (r.width - chooser.offsetWidth) / 2) + 'px';
-    chooser.style.top = Math.round(r.top - 56) + 'px';
-  }
-
-  function makePanel() {
-    if (panel) return;
-    panel = document.createElement('div');
-    panel.id = 'hmw-panel';
-    panel.innerHTML = `
-      <div class="hmw-head">
-        <i class="hmw-title"></i>
-        <div class="hmw-head-actions">
-          <button class="hmw-ghost" id="hmw-quick"></button>
-          <button class="hmw-primary" id="hmw-fromctx"></button>
-        </div>
-      </div>
-
-      <div class="hmw-field">
-        <div class="hmw-contextline" id="hmw-ctxline" title=""></div>
-        <textarea id="hmw-ctx" rows="2" placeholder=""></textarea>
-        <pre id="hmw-result"></pre>
-      </div>
-
-      <div class="hmw-warn" id="hmw-warn" hidden>⚠️ Configure l’endpoint dans les options.</div>
-
-      <div class="hmw-foot">
-        <button id="hmw-close" class="hmw-ghost">Fermer</button>
-        <button id="hmw-insert" class="hmw-primary">Insérer</button>
-      </div>
-    `;
-    document.body.appendChild(panel);
-
-    // refs
-    ctxInput   = $('#hmw-ctx', panel);
-    ctxLine    = $('#hmw-ctxline', panel);
-    resultBox  = $('#hmw-result', panel);
-    actionQuickBtn = $('#hmw-quick', panel);
-    actionCtxBtn   = $('#hmw-fromctx', panel);
-    insertBtn  = $('#hmw-insert', panel);
-    closeBtn   = $('#hmw-close', panel);
-    warnRow    = $('#hmw-warn', panel);
-
-    // actions
-    on(closeBtn, 'click', () => togglePanel(false));
-    on(insertBtn, 'click', () => {
-      const txt = (resultBox.textContent || '').trim();
-      if (txt) insertInComposer(txt);
-    });
-
-    // Submit depuis les boutons
-    on(actionQuickBtn, 'click', () => submit('quick'));
-    on(actionCtxBtn,   'click', () => submit('context'));
-
-    // Petit confort: Ctrl+Enter => depuis le champ contexte
-    on(ctxInput, 'keydown', (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') submit('context');
-    });
-  }
-
-  function openPanel(selectedMode) {
-    makePanel();
-
-    // titre, placeholders & libellés selon le mode
-    if (selectedMode === 'reply') {
-      $('.hmw-title', panel).textContent = 'Rédaction';
-      ctxInput.placeholder = 'Contexte… (laisse vide ou écris “répond” pour une réponse automatique)';
-      actionQuickBtn.textContent = 'Réponse rapide';
-      actionCtxBtn.textContent   = 'Proposition';
-    } else {
-      $('.hmw-title', panel).textContent = 'Analyse';
-      ctxInput.placeholder = 'Contexte… (facultatif, le mail actuel sera analysé)';
-      actionQuickBtn.textContent = 'Analyse rapide';
-      actionCtxBtn.textContent   = 'Étudier';
+  // --- appel backend ---
+  async function handleSubmit(intent, isQuick=false) {
+    if (!ENDPOINT) {
+      result.textContent = '⚠️ Configure l’endpoint dans les options.';
+      root.classList.add('has-result');
+      chip.textContent = ta.value.trim();
+      return;
     }
 
-    // Réinitialiser l’état mono-champ
-    ctxInput.value = '';
-    ctxInput.hidden = false;
-    resultBox.textContent = '';
-    resultBox.hidden = true;
-    ctxLine.textContent = '';
-    ctxLine.title = '';
-    ctxLine.hidden = true;
+    // Construire payload selon le mode
+    const ctx = ta.value.trim();
+    const src = lastMessageText();
 
-    togglePanel(true);
-    placePanel();
-    ctxInput.focus();
-  }
-
-  function togglePanel(show) {
-    panel.classList.toggle('open', !!show);
-  }
-
-  function placePanel() {
-    const box = findComposerBox();
-    if (!box) return;
-    const r = box.getBoundingClientRect();
-    // largeur = composer - marges, coller par-dessus
-    const pad = 12;
-    panel.style.width = Math.max(360, r.width - pad * 2) + 'px';
-    panel.style.left  = Math.round(r.left + pad) + 'px';
-    panel.style.top   = Math.round(r.top - panel.offsetHeight - 12) + 'px';
-  }
-
-  function showWarn(show) {
-    warnRow.hidden = !show;
-  }
-
-  function showResult(contextText, resultText) {
-    // Conserver la trace du contexte, tronquée 1 ligne
-    const ctx = (contextText || '').trim();
-    if (ctx) {
-      ctxLine.textContent = ctx;
-      ctxLine.title = ctx;
-      ctxLine.hidden = false;
-    } else {
-      ctxLine.hidden = true;
-    }
-    // Remplacer l’éditeur par le résultat dans le *même* bloc
-    ctxInput.hidden = true;
-    resultBox.textContent = (resultText || '').trim() || '—';
-    resultBox.hidden = false;
-
-    // Ajuster la position si la hauteur a changé
-    placePanel();
-  }
-
-  // ------- submit -------
-  async function submit(kind) {
-    // kind: 'quick' (aucun contexte) | 'context' (utilise ctxInput)
-    const ENDPOINT = await loadEndpoint();
-    showWarn(!ENDPOINT);
-    if (!ENDPOINT) return;
-
-    const last = getLastMessageText();
-    const rawCtx = (ctxInput.value || '').trim();
-    const useCtx = kind === 'context' ? rawCtx : '';
-
-    /** payload */
-    let payload;
-
-    if (mode === 'reply') {
-      if (!useCtx || /^répond/.test(useCtx.toLowerCase())) {
-        payload = {
-          mode: 'reply',
-          autoTone: true,
-          context: last,
-          tone: 'direct',
-          signature: 'Cordialement,\nNOM Prénom',
-          sourceMeta: { subject: '' } // on n'impose pas d'objet
-        };
-      } else {
-        payload = {
-          mode: 'draft',
-          context: useCtx,
-          tone: 'direct',
-          signature: 'Cordialement,\nNOM Prénom'
-        };
-      }
-    } else {
-      // analyse
+    let payload = {};
+    if (intent === 'reply') {
+      // réponse auto (ton du dernier mail). Si pas de texte dernier mail, on bascule sur draft.
       payload = {
-        mode: 'explain',
-        context: useCtx || last
+        mode: 'reply',
+        autoTone: true,
+        context: src,
+        tone: 'direct',
+        signature: 'NOM Prénom',
+        sourceMeta: { subject: (document.title || '').replace(/ -.*$/, '') }
       };
+      if (!src) payload = { mode: 'draft', context: ctx, tone: 'direct', signature: 'NOM Prénom' };
+    } else if (intent === 'explain') {
+      payload = { mode: 'explain', context: src || ctx };
+    } else {
+      // proposition guidée par le contexte saisi
+      payload = { mode: 'draft', context: ctx, tone: 'direct', signature: 'NOM Prénom' };
     }
 
-    // UI busy
-    const previousQuick = actionQuickBtn.textContent;
-    const previousCtx   = actionCtxBtn.textContent;
-    actionQuickBtn.disabled = true;
-    actionCtxBtn.disabled   = true;
-    actionQuickBtn.textContent = '…';
-    actionCtxBtn.textContent   = '…';
+    // UI état
+    const prev = ta.value.trim();
+    $('#hmw-propose', root).disabled = true;
+    $('#hmw-quick',   root).disabled = true;
 
     try {
       const res = await fetch(ENDPOINT, {
@@ -285,55 +197,41 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+      const data = await res.json().catch(() => ({}));
+      const txt = (data && (data.text || data.explanation)) || '—';
 
-      if (!res.ok) {
-        const t = await res.text().catch(()=>'');
-        showResult(rawCtx, `❌ Erreur (${res.status}). ${t || ''}`.trim());
-        return;
-      }
-      const data = await res.json().catch(()=> ({}));
-      const text = (data.text || data.explanation || '').trim();
-      showResult(rawCtx, text);
+      // bascule en mode résultat, chip = ancien contexte (éventuel)
+      chip.textContent = prev || (MODE==='explain' ? '(analyse du message)' : '');
+      result.textContent = txt;
+      root.classList.add('has-result');
+
     } catch (e) {
-      showResult(rawCtx, '❌ Erreur réseau ou serveur.');
+      result.textContent = '❌ Erreur réseau/serveur.';
+      root.classList.add('has-result');
+      chip.textContent = prev;
       console.error(e);
     } finally {
-      actionQuickBtn.disabled = false;
-      actionCtxBtn.disabled   = false;
-      actionQuickBtn.textContent = previousQuick;
-      actionCtxBtn.textContent   = previousCtx;
+      $('#hmw-propose', root).disabled = false;
+      $('#hmw-quick',   root).disabled = false;
+      placeBox();
     }
   }
 
-  // ------- observers & layout -------
-  function attachObservers() {
-    // (re)placer UI quand Gmail change le DOM
-    const obs = new MutationObserver(() => {
-      makeBubble();
-      makeChooser();
-      placeChooser();
-      if (panel?.classList.contains('open')) placePanel();
-    });
+  // --- observer pour réattacher/placer la box ---
+  function attach() {
+    buildBox(); setTitle(); placeBox();
+
+    // Repositionner sur scroll/resize
+    window.addEventListener('scroll', placeBox, { passive: true });
+    window.addEventListener('resize', placeBox, { passive: true });
+
+    // Reagir aux reconstructions DOM de Gmail
+    const obs = new MutationObserver(() => placeBox());
     obs.observe(document.body, { childList: true, subtree: true });
-
-    // recalculs sur resize / scroll
-    window.addEventListener('resize', () => {
-      placeChooser();
-      if (panel?.classList.contains('open')) placePanel();
-    }, { passive: true });
-    window.addEventListener('scroll', () => {
-      placeChooser();
-      if (panel?.classList.contains('open')) placePanel();
-    }, { passive: true });
   }
 
-  // boot
-  try {
-    makeBubble();
-    makeChooser();
-    attachObservers();
-    log('ready');
-  } catch (e) {
-    console.error('[HMW] init', e);
-  }
+  // --- boot ---
+  loadEndpoint(() => {
+    attach();
+  });
 })();
