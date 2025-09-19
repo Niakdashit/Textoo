@@ -1,145 +1,76 @@
-/* ===== Help Me Write – Styles légers, sans overlay ===== */
-
-#hmw-bubble {
-  position: fixed;
-  right: 18px;
-  bottom: 18px;
-  width: 56px;
-  height: 56px;
-  border: none;
-  border-radius: 999px;
-  box-shadow: 0 8px 24px rgba(93, 62, 255, .25);
-  background: #6b46ff;
-  color: #fff;
-  font-size: 26px;
-  line-height: 1;
-  cursor: pointer;
-  z-index: 2147483000; /* au-dessus de Gmail */
-  display: grid;
-  place-items: center;
+/* --- FAB ----------------------------------------------------- */
+#hmw-fab{
+  position:fixed; right:22px; bottom:22px; z-index:2147483000;
+  width:48px; height:48px; border-radius:50%; border:0; cursor:pointer;
+  background:#6f4af6; color:#fff; font-size:20px; line-height:1;
+  box-shadow:0 8px 20px rgba(111,74,246,.28); display:grid; place-items:center;
 }
 
-#hmw-chooser {
-  position: fixed;
-  right: 88px;
-  bottom: 88px;
-  background: #fff;
-  border: 1px solid #ece7ff;
-  box-shadow: 0 10px 30px rgba(17, 12, 46, .08);
-  border-radius: 14px;
-  padding: 10px;
-  display: none;
-  gap: 8px;
-  z-index: 2147483000;
+/* Chooser */
+#hmw-chooser{
+  position:fixed; right:78px; bottom:22px; z-index:2147483000;
+  display:none; gap:8px; background:#fff; border:1px solid #eeeafc;
+  border-radius:12px; padding:8px 10px; box-shadow:0 12px 28px rgba(0,0,0,.06);
 }
-#hmw-chooser button {
-  border: 1px solid #d9d2ff;
-  background: #f6f3ff;
-  color: #6b46ff;
-  border-radius: 12px;
-  padding: 8px 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-#hmw-chooser button:hover { background: #efe9ff; }
-
-/* Carte principale alignée au-dessus du composer */
-#hmw-card {
-  position: absolute; /* on l’ancre par JS juste au-dessus du composer */
-  width: 680px;       /* sera ramené à la largeur du composer par JS */
-  max-width: min(860px, 96vw);
-  border-radius: 22px;
-  background: #fbf8ff;
-  border: 1px solid #eee6ff;
-  box-shadow: 0 16px 40px rgba(17,12,46,.10);
-  padding: 10px 14px 12px;
-  z-index: 2147483000;
-  display: none;
+#hmw-chooser.open{ display:flex; }
+#hmw-chooser button{
+  background:#fff; color:#5a3ef0; border:1px solid #dcd3ff;
+  border-radius:10px; padding:8px 10px; font-weight:600; cursor:pointer;
 }
 
-.hmw-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 6px 10px 8px;
-}
-.hmw-title {
-  font-style: italic;
-  color: #7f6abf;
-  font-size: 20px;
-}
-.hmw-quick {
-  border: 1.5px solid #cdbdff;
-  background: #eadeff;
-  color: #4b35b8;
-  border-radius: 16px;
-  padding: 8px 14px;
-  font-weight: 700;
-  cursor: pointer;
+/* --- Card ---------------------------------------------------- */
+.hmw-card{
+  position:absolute; z-index:2147483000; width:680px; max-width:calc(100vw - 80px);
+  background:#faf9ff; border:1px solid #eeeafc; border-radius:16px;
+  box-shadow:0 10px 26px rgba(111,74,246,.08); padding:14px 16px 10px;
 }
 
-.hmw-field {
-  margin: 4px 2px 10px;
-  background: #fff;
-  border: 1px solid #e6deff;
-  border-radius: 18px;
-  padding: 8px;
+/* En-tête italique discret */
+.hmw-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.hmw-title{ font-style:italic; color:#5a3ef0; font-size:16px; margin-left:4px; }
+
+/* Champ compact auto-grow */
+.hmw-row{ position:relative; }
+.hmw-input{
+  width:100%; min-height:48px; max-height:200px; overflow:auto; resize:none;
+  border:1px solid #e9e1ff; border-radius:12px; background:#fff;
+  padding:12px 120px 12px 14px; font-size:14px; line-height:1.35; outline:none;
+}
+.hmw-input::placeholder{ color:#b7b0d5; }
+
+/* Actions à droite du champ */
+.hmw-actions-top{
+  position:absolute; right:8px; top:8px; display:flex; gap:8px;
+}
+.hmw-btn{
+  border:1px solid #5a3ef0; color:#fff; background:#5a3ef0;
+  border-radius:10px; padding:8px 10px; font-weight:700; cursor:pointer;
+}
+.hmw-btn.ghost{
+  background:#fff; color:#5a3ef0; border-color:#dcd3ff;
+}
+.hmw-btn[disabled]{ opacity:.45; cursor:not-allowed; }
+
+/* Résultat */
+.hmw-output{
+  margin-top:10px; background:#fff; border:1px solid #e9e1ff; border-radius:12px;
+  min-height:52px; max-height:300px; overflow:auto; padding:12px 14px;
+  white-space:pre-wrap; font-size:14px; line-height:1.35;
 }
 
-#hmw-context {
-  width: 100%;
-  border: none;
-  outline: none;
-  font-size: 15px;
-  line-height: 1.35;
-  color: #4b3f79;
-  resize: none;
-  max-height: 180px;        /* petit par défaut */
-  overflow: auto;
-}
-#hmw-context::placeholder { color: #b9acd9; }
-
-.hmw-actions {
-  display: flex; justify-content: flex-end; gap: 8px;
-  margin-top: 8px;
-}
-.hmw-primary {
-  border: 1.5px solid #7d6bff;
-  background: #f3efff;
-  color: #3e2fd6;
-  border-radius: 18px;
-  padding: 10px 16px;
-  font-weight: 700;
-  cursor: pointer;
-}
-.hmw-primary[disabled] {
-  opacity: .45; cursor: not-allowed;
+/* Avertissement endpoint */
+.hmw-warning{
+  display:block; margin-top:8px; font-size:13px; color:#6b60cc;
+  background:#f7f4ff; border:1px dashed #d7cffd; border-radius:10px; padding:8px 10px;
 }
 
-#hmw-output {
-  width: 100%;
-  border: none;
-  outline: none;
-  background: #fff;
-  border: 1px solid #e6deff;
-  border-radius: 18px;
-  padding: 12px;
-  font-size: 15px;
-  line-height: 1.45;
-  color: #251f57;
-  margin-top: 6px;
-  max-height: 260px;        /* auto mais contenu long défile */
-  overflow: auto;
+/* Bas */
+.hmw-bottom{ display:flex; justify-content:flex-end; gap:8px; margin-top:10px; }
+.hmw-secondary{
+  background:#fff; color:#5a3ef0; border:1px solid #dcd3ff; border-radius:10px; padding:8px 10px; font-weight:600; cursor:pointer;
+}
+.hmw-primary{
+  background:#5a3ef0; color:#fff; border:1px solid #5a3ef0; border-radius:10px; padding:8px 12px; font-weight:700; cursor:pointer;
 }
 
-.hmw-footer {
-  display: flex; justify-content: flex-end; gap: 8px;
-  margin-top: 10px;
-}
-.hmw-link {
-  border: 1px solid #e2dcff;
-  background: #fff;
-  color: #6b46ff;
-  border-radius: 16px;
-  padding: 8px 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
+/* No overlay on purpose */
