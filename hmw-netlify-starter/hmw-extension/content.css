@@ -1,74 +1,92 @@
-/* content.css – style épuré type “MerciApp” */
-
-#hmw-bubble {
-  position: fixed;
-  right: 18px;
-  bottom: 18px;
-  width: 40px; height: 40px;
-  border-radius: 999px;
-  border: none;
-  background: #6c44ff;
-  color: #fff;
-  font-size: 20px;
-  box-shadow: 0 8px 22px rgba(108,68,255,.35);
-  cursor: pointer;
-  z-index: 2147483000;
+:root{
+  --hmw-bg:#F6F0FF;          /* lilas très clair */
+  --hmw-accent:#6F52FF;      /* violet primaire */
+  --hmw-accent-2:#8C78FF;    /* hover */
+  --hmw-text:#2A1856;
+  --hmw-border:#E6DFFF;
+  --hmw-shadow:0 10px 35px rgba(31,13,75,.18);
+  --hmw-radius:22px;
+  --hmw-z:2147483000;
 }
 
-#hmw-bubble:hover { filter: brightness(1.05); }
+/* Pastille */
+#hmw-bubble{
+  position:fixed; right:18px; bottom:18px;
+  width:54px;height:54px;border-radius:999px;
+  border:none; cursor:pointer; z-index:var(--hmw-z);
+  background:var(--hmw-accent);
+  box-shadow:0 6px 22px rgba(111,82,255,.35);
+  display:flex;align-items:center;justify-content:center;
+}
+#hmw-bubble svg{ width:26px;height:26px; fill:#fff }
 
-#hmw-modal {
-  position: fixed;
-  inset: 0;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  background: rgba(17,17,27,.35);
-  z-index: 2147483001;
+/* Mini menu au clic de la pastille */
+#hmw-menu{ position:fixed; z-index:var(--hmw-z);
+  background:#fff; border:1px solid var(--hmw-border);
+  border-radius:14px; box-shadow:var(--hmw-shadow);
+  padding:6px; display:none;
+}
+#hmw-menu button{
+  display:block; width:100%; text-align:left;
+  background:#fff; border:none; border-radius:10px;
+  padding:10px 12px; font:500 14px system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  color:var(--hmw-text); cursor:pointer;
+}
+#hmw-menu button:hover{ background:var(--hmw-bg) }
+
+/* Panneau : pas de backdrop/voile — carte seule */
+#hmw-panel{
+  position:absolute; z-index:var(--hmw-z);
+  width:min(820px, 96vw); display:none;
+}
+.hmw-card{
+  background:#fff; border:1px solid var(--hmw-border);
+  border-radius:var(--hmw-radius); box-shadow:var(--hmw-shadow);
+  overflow:hidden;
 }
 
-#hmw-modal.open { display: flex; }
-
-#hmw-modal .hmw-card{
-  width: min(800px, 92vw);
-  background: #fbf7ff;
-  border-radius: 16px;
-  box-shadow: 0 24px 60px rgba(20,17,44,.25);
-  padding: 12px 12px 10px;
-  border: 1px solid rgba(108,68,255,.25);
-}
-
+/* En-tête “Répondre | Analyser” (style pastille onglets) */
 .hmw-tabs{
-  display:flex; align-items:center; gap:10px;
-  padding: 6px 8px 10px;
+  padding:12px 18px; background:var(--hmw-bg);
+  color:var(--hmw-accent); display:flex; gap:14px; align-items:center;
+  border-bottom:1px solid var(--hmw-border);
 }
+.hmw-tabs .sep{ opacity:.4 }
 .hmw-tabs button{
-  background: transparent; border:none; cursor:pointer;
-  font-size: 16px; color:#6c44ff; padding:6px 10px; border-radius:12px;
+  background:transparent; border:none; cursor:pointer;
+  font:600 18px/1.2 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  color:var(--hmw-accent); padding:6px 10px; border-radius:12px;
 }
-.hmw-tabs button.active{ background: rgba(108,68,255,.12); }
-.hmw-tabs .sep{ color:#a48cff; user-select:none; }
+.hmw-tabs button.active{ background:#EDE6FF; }
 
-.hmw-area, .hmw-result { padding: 6px 8px 10px; }
+/* Zone textarea + bouton principal à droite */
+.hmw-area, .hmw-result{ padding:16px 18px }
 #hmw-ctx, #hmw-out{
-  width: 100%; height: 200px; resize: vertical;
-  box-sizing: border-box;
-  border-radius: 14px;
-  border: 1px solid rgba(108,68,255,.25);
-  background: #fff;
-  padding: 14px 16px;
-  font: 14px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #2a1f4a;
-  outline: none;
+  width:100%; min-height:170px; resize:vertical;
+  border:1px solid var(--hmw-border); border-radius:18px;
+  font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  padding:18px; box-sizing:border-box; background:#fff; color:var(--hmw-text);
 }
-#hmw-ctx::placeholder{ color:#b9aef5; }
+#hmw-ctx::placeholder{ color:#BBB1E0 }
 
-.hmw-actions{
-  display:flex; justify-content:flex-end; gap:8px; margin-top: 10px;
+.hmw-actions{ display:flex; gap:10px; justify-content:flex-end; margin-top:12px }
+.hmw-actions .primary{
+  background:#fff; color:var(--hmw-accent); border:2px solid var(--hmw-accent);
+  padding:10px 16px; border-radius:16px; font-weight:700; cursor:pointer;
 }
-.hmw-actions button{
-  border:1px solid rgba(108,68,255,.35);
-  background: #f3ecff; color:#6c44ff;
-  border-radius: 999px; padding: 10px 14px; cursor: pointer;
+.hmw-actions .primary:hover{ border-color:var(--hmw-accent-2); color:var(--hmw-accent-2) }
+.hmw-actions .ghost{
+  background:#F6F0FF; color:#5A4AA8; border:none;
+  padding:10px 14px;border-radius:14px; cursor:pointer;
 }
-.hmw-actions button:hover{ filter: brightness(1.03); }
+
+/* Sub-badges “Réponse rapide / Analyse rapide” */
+.hmw-badge{
+  position:absolute; right:22px; top:-18px;
+  background:#E2D8FF; color:#5A4AA8;
+  padding:10px 16px; border-radius:14px; font-weight:700;
+  box-shadow:var(--hmw-shadow); border:1px solid var(--hmw-border);
+}
+
+/* Positionneur du badge (au dessus de la carte) */
+.hmw-badge-wrap{ position:relative; height:0 }
