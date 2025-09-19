@@ -1,146 +1,66 @@
-/* ---------- HMW — styles compacts & précis ---------- */
-
-:root {
-  /* conservez cette largeur (celle qui t’allait parfaitement) */
-  --hmw-width: 540px;        /* ajuste ici si tu veux un chouïa moins large */
-  --hmw-radius: 12px;
-  --hmw-accent: #4c35ff;     /* violet UI */
-  --hmw-accent-2: #7d68ff;   /* pour hover subtil */
-  --hmw-bg: #fbf8ff;         /* léger lavande */
-  --hmw-border: #634bff;
-  --hmw-text: #2b1970;
-  --hmw-muted: #a6a0c6;
-  --hmw-red: #ff6b6b;
-  --hmw-shadow: 0 6px 18px rgba(76,53,255,.15);
+/* content.css — HMW */
+#hmw-fab{
+  position: fixed; right: 18px; bottom: 18px; z-index: 2147483647;
+  width: 48px; height: 48px; border-radius: 50%;
+  border: none; outline: none; cursor: pointer;
+  background:#6a40ff; color:#fff; font-size:22px; line-height:48px;
+  box-shadow: 0 8px 24px rgba(106,64,255,.35);
 }
 
-/* pastille (bouton flottant) */
-#hmw-fab {
-  position: fixed;
-  right: 22px;
-  bottom: 22px;
-  width: 48px; height: 48px;
-  border-radius: 50%;
-  background: var(--hmw-accent);
-  box-shadow: var(--hmw-shadow);
-  display: grid; place-items: center;
-  color:#fff; font-size:22px; line-height:1;
-  cursor: pointer; z-index: 2147483646;
-  border: none;
+#hmw-chooser{
+  position: fixed; right: 18px; bottom: 78px; z-index: 2147483647;
+  display: none; background: #fff; border:1px solid rgba(106,64,255,.25);
+  box-shadow: 0 10px 30px rgba(0,0,0,.08); border-radius:12px; padding:6px;
 }
-#hmw-fab:hover { background: var(--hmw-accent-2); }
+#hmw-chooser.open{ display:block; }
+#hmw-chooser .opt{
+  background:transparent; border:none; padding:10px 14px; margin:2px 0;
+  width: 140px; border-radius:8px; cursor:pointer; color:#4b2bd6; font-weight:600;
+}
+#hmw-chooser .opt:hover{ background:rgba(106,64,255,.08); }
 
-/* mini-choix au-dessus de la pastille */
-#hmw-chooser {
-  position: fixed;
-  right: 22px;
-  bottom: 80px;
-  background: #fff;
-  border: 1px solid rgba(99,75,255,.25);
-  border-radius: 10px;
-  box-shadow: var(--hmw-shadow);
-  padding: 6px;
-  display: none;             /* toggle JS */
-  z-index: 2147483646;
+#hmw-panel{
+  position: absolute; z-index: 2147483646; display:none;
+  background: #fff; border:1.5px solid #5737ff;
+  border-radius: 10px; box-shadow: 0 12px 36px rgba(0,0,0,.12);
+  padding: 8px 10px 6px;
 }
-#hmw-chooser .opt {
-  padding: 8px 12px;
-  border-radius: 8px;
-  font: 500 13px/1.1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: var(--hmw-text);
-  cursor: pointer;
-}
-#hmw-chooser .opt:hover { background: var(--hmw-bg); }
+#hmw-panel .hmw-head{ padding: 4px 4px 2px 6px; color:#6a40ff; }
+#hmw-panel .hmw-head em{ font-style: italic; font-weight:600; letter-spacing:.2px; }
 
-/* bloc au-dessus du composer */
-#hmw-panel {
-  position: absolute;        /* collé au composer via JS */
-  width: var(--hmw-width);
-  background: #fff;
-  border: 2px solid var(--hmw-border);
-  border-radius: var(--hmw-radius);
-  box-shadow: var(--hmw-shadow);
-  z-index: 2147483000;
-  overflow: hidden;
+#hmw-panel .hmw-ctxWrap{ position: relative; }
+#hmw-panel textarea#hmw-ctx{
+  width: 100%; min-height: 54px; max-height: 180px; resize: none;
+  border:1px solid rgba(87,55,255,.55); border-radius: 8px;
+  padding: 12px 40px 10px 14px; outline: none; background:#fbfaff;
+  color:#23184c; font-size:14px; line-height:1.35;
+}
+#hmw-panel textarea#hmw-ctx::placeholder{ color:#b5aef2; }
+
+#hmw-panel .ghost{
+  position:absolute; left:12px; top:-18px; font-size:12px; color:#9a93e6;
+  max-width: calc(100% - 24px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
-/* en-tête : titre italique + actions droites (copier) */
-.hmw-head {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 8px 10px 0 14px;
+#hmw-panel .icon{
+  position:absolute; right:10px; top:10px; background:transparent; border:none; cursor:pointer;
+  opacity:.8; font-size:16px;
 }
-.hmw-title {
-  font: italic 600 14px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: var(--hmw-text);
-}
-.hmw-copy {
-  border: 1.5px solid var(--hmw-border);
-  width: 26px; height: 26px;
-  border-radius: 8px;
-  display: grid; place-items: center;
-  cursor: pointer;
-  color: var(--hmw-border);
-  background: #fff;
-}
-.hmw-copy:hover { background: var(--hmw-bg); }
+#hmw-panel .icon:hover{ opacity:1; }
 
-/* zone texte */
-#hmw-ctx {
-  width: calc(100% - 16px);
-  margin: 6px 8px 0 8px;
-  height: 68px;                       /* peu haut par défaut */
-  resize: none;
-  border: 1.5px solid rgba(99,75,255,.5);
-  border-radius: 10px;
-  background: var(--hmw-bg);
-  padding: 12px 12px;
-  outline: none;
-  color: var(--hmw-text);
-  font: 15px/1.35 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+#hmw-panel .hmw-actions{
+  display:flex; align-items:center; gap:10px; padding:8px 4px 2px 6px;
 }
-#hmw-ctx::placeholder { color: #c3bdea; }
+#hmw-panel .link{
+  background:transparent; border:none; color:#4b2bd6; font-weight:700; cursor:pointer;
+  padding:6px 8px; border-radius:8px;
+}
+#hmw-panel .link:hover{ background:rgba(106,64,255,.08); }
+#hmw-panel .sep{ width:1px; height:18px; background:rgba(87,55,255,.3); display:inline-block; }
 
-/* barre basse */
-.hmw-bar {
-  margin: 10px 8px;
-  border-top: 1px solid rgba(99,75,255,.25);
-  display: flex; align-items: center; justify-content: center;
-  gap: 22px;
-  padding: 10px 6px 12px;
-  position: relative;
+#hmw-panel .close{
+  margin-left:auto; background:#ff6b6b; border:none; color:#fff;
+  width:22px; height:22px; border-radius:50%; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; font-size:13px;
 }
-
-/* boutons “texte” centrés */
-.hmw-link {
-  font: 600 15px/1 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: var(--hmw-accent);
-  cursor: pointer;
-  padding: 6px 8px;
-  border-radius: 8px;
-  user-select: none;
-}
-.hmw-link:hover { background: var(--hmw-bg); }
-.hmw-sep { width:1px; height:18px; background: rgba(99,75,255,.4); }
-
-/* croix rouge */
-.hmw-close {
-  position: absolute; right: 6px; bottom: 10px;
-  width: 28px; height: 28px; border-radius: 50%;
-  display: grid; place-items: center;
-  background: var(--hmw-red); color:#fff; font-weight:700;
-  cursor:pointer; border:none;
-}
-
-/* état “résultat écrit dans la même zone” */
-#hmw-ctx[data-filled="1"] {
-  min-height: 96px;           /* grandit avec la réponse */
-  white-space: pre-wrap;
-}
-#hmw-ctx[data-ctxhint]::before { content: attr(data-ctxhint); }
-
-/* aide accès clavier */
-#hmw-panel button, #hmw-panel .hmw-link { outline: none; }
-#hmw-panel button:focus-visible, #hmw-panel .hmw-link:focus-visible {
-  box-shadow: 0 0 0 2px rgba(76,53,255,.25);
-  border-radius: 8px;
-}
+#hmw-panel .close:hover{ filter:brightness(.95); }
