@@ -1,66 +1,165 @@
-/* content.css — HMW */
+/* === HMW — Gmail mini box === */
+
+/* Palette */
+:root {
+  --hmw-bg: #faf9fc;          /* fond très léger */
+  --hmw-fg: #3f23c2;          /* violet texte/contours */
+  --hmw-border: #A94BF7;      /* contour */
+  --hmw-muted: #b8aaf2;       /* éléments atténués */
+  --hmw-danger: #ff6b6b;      /* close */
+}
+
+/* Boîte principale, largeur fixe (cf. content.js pour la valeur px) */
+#hmw-box {
+  position: absolute; /* on positionne juste au-dessus du composer */
+  z-index: 2147483000;
+  background: var(--hmw-bg);
+  border: 1px solid var(--hmw-border);
+  border-radius: 4px;
+  box-shadow: 0 2px 17px rgba(63,35,194,0.12);
+  overflow: hidden;
+  backdrop-filter: saturate(1.1);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+/* Titre en italique ("Rédaction" / "Analyse") */
+#hmw-box .hmw-title {display: none; 
+  font-style: italic;
+  color: var(--hmw-muted);
+  padding: 10px 14px 0 14px;
+  font-size: 14px;
+}
+
+/* Zone saisie / résultat (un seul "champ") */
+#hmw-box .hmw-area {border: none; 
+  position: relative;
+  margin: 8px 12px 6px 12px;
+  
+  border-radius: 8px;
+  background: #FAF9FC;
+}
+
+/* textarea (phase saisie) */
+#hmw-box textarea {
+  width: 100%;
+  height: 54px;                    /* compact par défaut */
+  min-height: 42px;
+  max-height: 180px;
+  padding: 12px 44px 12px 18px;    /* place pour l'icône copier */
+  border: 0;
+  outline: 0;
+  resize: vertical;
+  background: transparent;
+  color: #301994;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+/* Icône copier en haut-droite de la zone */
+#hmw-copy {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  font-size: 16px;
+  color: var(--hmw-fg);
+  opacity: .85;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Bande "résumé de contexte" quand résultat affiché */
+#hmw-box .hmw-chip {
+  display: none;                   /* masquée tant qu'il n'y a pas de résultat */
+  padding: 8px 44px 6px 14px;
+  color: #7c74c9;
+  background: #f6f3ff;
+  border-bottom: 1px solid var(--hmw-border);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
+}
+
+/* Vue résultat (remplace le textarea) */
+#hmw-result {
+  display: none;
+  padding: 12px 14px;
+  color: #261a86;
+  font-size: 14px;
+  line-height: 1.35;
+  max-height: 220px;
+  overflow: auto;                  /* grand texte -> scroll interne */
+}
+
+/* Barre d'actions bas ("Proposition | Réponse rapide | Insérer") */
+#hmw-actions {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  justify-content: center;
+  border-top: 1px solid #F3F0FF;
+  padding: 10px 12px;
+  background: #FFFFFF;
+}
+
+#hmw-actions .hmw-link {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--hmw-fg);
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 1;
+  padding: 6px 0;
+  cursor: pointer;
+}
+
+#hmw-actions .hmw-sep {
+  width: 1px;
+  height: 16px;
+  background: #cbbefc;
+}
+
+/* Bouton fermer (petit rond rouge) */
+#hmw-close {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--hmw-danger);
+  color: #fff;
+  font-weight: 700;
+  border: 0;
+  line-height: 22px;
+  text-align: center;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* État "mode résultat" : chip + résultat visibles, textarea masqué */
+#hmw-box.has-result .hmw-chip { display: block; }
+#hmw-box.has-result textarea { display: none; }
+#hmw-box.has-result #hmw-result { display: block; }
+
+/* -------- FAB + menu (inchangés visuellement) -------- */
 #hmw-fab{
-  position: fixed; right: 18px; bottom: 18px; z-index: 2147483647;
-  width: 48px; height: 48px; border-radius: 50%;
-  border: none; outline: none; cursor: pointer;
-  background:#6a40ff; color:#fff; font-size:22px; line-height:48px;
-  box-shadow: 0 8px 24px rgba(106,64,255,.35);
+  position: fixed; right: 20px; bottom: 20px; z-index: 2147483647;
+  width: 52px; height: 52px; border-radius: 26px;
+  background: #6B4CFF; color:#fff; border:1px solid #4D36D8;
+  font-size:22px; line-height: 52px; text-align:center;
+  box-shadow: 0 12px 28px rgba(60,37,255,.25);
+  cursor: pointer; user-select: none;
 }
-
 #hmw-chooser{
-  position: fixed; right: 18px; bottom: 78px; z-index: 2147483647;
-  display: none; background: #fff; border:1px solid rgba(106,64,255,.25);
-  box-shadow: 0 10px 30px rgba(0,0,0,.08); border-radius:12px; padding:6px;
+  position: fixed; right: 20px; bottom: 80px; z-index:2147483647;
+  background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,.12);
+  padding:6px; display:none; min-width:120px;
 }
-#hmw-chooser.open{ display:block; }
-#hmw-chooser .opt{
-  background:transparent; border:none; padding:10px 14px; margin:2px 0;
-  width: 140px; border-radius:8px; cursor:pointer; color:#4b2bd6; font-weight:600;
+#hmw-chooser button{
+  display:block; width:100%; text-align:left; padding:9px 10px; border-radius:8px;
+  border:none; background:#fff; color:#111; font-weight:600; cursor:pointer; font-size:14px;
 }
-#hmw-chooser .opt:hover{ background:rgba(106,64,255,.08); }
-
-#hmw-panel{
-  position: absolute; z-index: 2147483646; display:none;
-  background: #fff; border:1.5px solid #5737ff;
-  border-radius: 10px; box-shadow: 0 12px 36px rgba(0,0,0,.12);
-  padding: 8px 10px 6px;
-}
-#hmw-panel .hmw-head{ padding: 4px 4px 2px 6px; color:#6a40ff; }
-#hmw-panel .hmw-head em{ font-style: italic; font-weight:600; letter-spacing:.2px; }
-
-#hmw-panel .hmw-ctxWrap{ position: relative; }
-#hmw-panel textarea#hmw-ctx{
-  width: 100%; min-height: 54px; max-height: 180px; resize: none;
-  border:1px solid rgba(87,55,255,.55); border-radius: 8px;
-  padding: 12px 40px 10px 14px; outline: none; background:#fbfaff;
-  color:#23184c; font-size:14px; line-height:1.35;
-}
-#hmw-panel textarea#hmw-ctx::placeholder{ color:#b5aef2; }
-
-#hmw-panel .ghost{
-  position:absolute; left:12px; top:-18px; font-size:12px; color:#9a93e6;
-  max-width: calc(100% - 24px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-
-#hmw-panel .icon{
-  position:absolute; right:10px; top:10px; background:transparent; border:none; cursor:pointer;
-  opacity:.8; font-size:16px;
-}
-#hmw-panel .icon:hover{ opacity:1; }
-
-#hmw-panel .hmw-actions{
-  display:flex; align-items:center; gap:10px; padding:8px 4px 2px 6px;
-}
-#hmw-panel .link{
-  background:transparent; border:none; color:#4b2bd6; font-weight:700; cursor:pointer;
-  padding:6px 8px; border-radius:8px;
-}
-#hmw-panel .link:hover{ background:rgba(106,64,255,.08); }
-#hmw-panel .sep{ width:1px; height:18px; background:rgba(87,55,255,.3); display:inline-block; }
-
-#hmw-panel .close{
-  margin-left:auto; background:#ff6b6b; border:none; color:#fff;
-  width:22px; height:22px; border-radius:50%; cursor:pointer;
-  display:flex; align-items:center; justify-content:center; font-size:13px;
-}
-#hmw-panel .close:hover{ filter:brightness(.95); }
+#hmw-chooser button:hover{ background:#F6F5FF; color:#3f23c2; }
