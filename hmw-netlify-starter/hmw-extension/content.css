@@ -1,144 +1,146 @@
-/* === HMW — Gmail mini box === */
+/* ---------- HMW — styles compacts & précis ---------- */
 
-/* Palette */
 :root {
-  --hmw-bg: #fbf7ff;          /* fond très léger */
-  --hmw-fg: #3f23c2;          /* violet texte/contours */
-  --hmw-border: #6c4af6;      /* contour */
-  --hmw-muted: #b8aaf2;       /* éléments atténués */
-  --hmw-danger: #ff6b6b;      /* close */
+  /* conservez cette largeur (celle qui t’allait parfaitement) */
+  --hmw-width: 540px;        /* ajuste ici si tu veux un chouïa moins large */
+  --hmw-radius: 12px;
+  --hmw-accent: #4c35ff;     /* violet UI */
+  --hmw-accent-2: #7d68ff;   /* pour hover subtil */
+  --hmw-bg: #fbf8ff;         /* léger lavande */
+  --hmw-border: #634bff;
+  --hmw-text: #2b1970;
+  --hmw-muted: #a6a0c6;
+  --hmw-red: #ff6b6b;
+  --hmw-shadow: 0 6px 18px rgba(76,53,255,.15);
 }
 
-/* Boîte principale, largeur fixe (cf. content.js pour la valeur px) */
-#hmw-box {
-  position: absolute; /* on positionne juste au-dessus du composer */
-  z-index: 2147483000;
-  background: var(--hmw-bg);
-  border: 2px solid var(--hmw-border);
+/* pastille (bouton flottant) */
+#hmw-fab {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  background: var(--hmw-accent);
+  box-shadow: var(--hmw-shadow);
+  display: grid; place-items: center;
+  color:#fff; font-size:22px; line-height:1;
+  cursor: pointer; z-index: 2147483646;
+  border: none;
+}
+#hmw-fab:hover { background: var(--hmw-accent-2); }
+
+/* mini-choix au-dessus de la pastille */
+#hmw-chooser {
+  position: fixed;
+  right: 22px;
+  bottom: 80px;
+  background: #fff;
+  border: 1px solid rgba(99,75,255,.25);
   border-radius: 10px;
-  box-shadow: 0 2px 10px rgba(63,35,194,0.12);
-  overflow: hidden;
-  backdrop-filter: saturate(1.1);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  box-shadow: var(--hmw-shadow);
+  padding: 6px;
+  display: none;             /* toggle JS */
+  z-index: 2147483646;
 }
-
-/* Titre en italique (“Rédaction” / “Analyse”) */
-#hmw-box .hmw-title {
-  font-style: italic;
-  color: var(--hmw-muted);
-  padding: 10px 14px 0 14px;
-  font-size: 14px;
-}
-
-/* Zone saisie / résultat (un seul “champ”) */
-#hmw-box .hmw-area {
-  position: relative;
-  margin: 8px 12px 6px 12px;
-  border: 1px solid var(--hmw-border);
+#hmw-chooser .opt {
+  padding: 8px 12px;
   border-radius: 8px;
-  background: #fcfbff;
-}
-
-/* textarea (phase saisie) */
-#hmw-box textarea {
-  width: 100%;
-  height: 54px;                    /* compact par défaut */
-  min-height: 42px;
-  max-height: 180px;
-  padding: 12px 44px 12px 18px;    /* place pour l’icône copier */
-  border: 0;
-  outline: 0;
-  resize: vertical;
-  background: transparent;
-  color: #3a2c7e;
-  font-size: 14px;
-  line-height: 1.35;
-}
-
-/* Icône copier en haut-droite de la zone */
-#hmw-copy {
-  position: absolute;
-  right: 10px;
-  top: 10px;
-  font-size: 16px;
-  color: var(--hmw-fg);
-  opacity: .85;
+  font: 500 13px/1.1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: var(--hmw-text);
   cursor: pointer;
+}
+#hmw-chooser .opt:hover { background: var(--hmw-bg); }
+
+/* bloc au-dessus du composer */
+#hmw-panel {
+  position: absolute;        /* collé au composer via JS */
+  width: var(--hmw-width);
+  background: #fff;
+  border: 2px solid var(--hmw-border);
+  border-radius: var(--hmw-radius);
+  box-shadow: var(--hmw-shadow);
+  z-index: 2147483000;
+  overflow: hidden;
+}
+
+/* en-tête : titre italique + actions droites (copier) */
+.hmw-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 10px 0 14px;
+}
+.hmw-title {
+  font: italic 600 14px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: var(--hmw-text);
+}
+.hmw-copy {
+  border: 1.5px solid var(--hmw-border);
+  width: 26px; height: 26px;
+  border-radius: 8px;
+  display: grid; place-items: center;
+  cursor: pointer;
+  color: var(--hmw-border);
+  background: #fff;
+}
+.hmw-copy:hover { background: var(--hmw-bg); }
+
+/* zone texte */
+#hmw-ctx {
+  width: calc(100% - 16px);
+  margin: 6px 8px 0 8px;
+  height: 68px;                       /* peu haut par défaut */
+  resize: none;
+  border: 1.5px solid rgba(99,75,255,.5);
+  border-radius: 10px;
+  background: var(--hmw-bg);
+  padding: 12px 12px;
+  outline: none;
+  color: var(--hmw-text);
+  font: 15px/1.35 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+#hmw-ctx::placeholder { color: #c3bdea; }
+
+/* barre basse */
+.hmw-bar {
+  margin: 10px 8px;
+  border-top: 1px solid rgba(99,75,255,.25);
+  display: flex; align-items: center; justify-content: center;
+  gap: 22px;
+  padding: 10px 6px 12px;
+  position: relative;
+}
+
+/* boutons “texte” centrés */
+.hmw-link {
+  font: 600 15px/1 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: var(--hmw-accent);
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 8px;
   user-select: none;
 }
+.hmw-link:hover { background: var(--hmw-bg); }
+.hmw-sep { width:1px; height:18px; background: rgba(99,75,255,.4); }
 
-/* Bande “résumé de contexte” quand résultat affiché */
-#hmw-box .hmw-chip {
-  display: none;                   /* masquée tant qu’il n’y a pas de résultat */
-  padding: 8px 44px 6px 14px;
-  color: #7c74c9;
-  background: #f6f3ff;
-  border-bottom: 1px solid var(--hmw-border);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 13px;
+/* croix rouge */
+.hmw-close {
+  position: absolute; right: 6px; bottom: 10px;
+  width: 28px; height: 28px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--hmw-red); color:#fff; font-weight:700;
+  cursor:pointer; border:none;
 }
 
-/* Vue résultat (remplace le textarea) */
-#hmw-result {
-  display: none;
-  padding: 12px 14px;
-  color: #261a86;
-  font-size: 14px;
-  line-height: 1.35;
-  max-height: 220px;
-  overflow: auto;                  /* grand texte -> scroll interne */
+/* état “résultat écrit dans la même zone” */
+#hmw-ctx[data-filled="1"] {
+  min-height: 96px;           /* grandit avec la réponse */
+  white-space: pre-wrap;
 }
+#hmw-ctx[data-ctxhint]::before { content: attr(data-ctxhint); }
 
-/* Barre d’actions bas (“Proposition | Réponse rapide | Insérer”) */
-#hmw-actions {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  justify-content: center;
-  border-top: 1px solid var(--hmw-border);
-  padding: 10px 12px;
-  background: #ffffff;
+/* aide accès clavier */
+#hmw-panel button, #hmw-panel .hmw-link { outline: none; }
+#hmw-panel button:focus-visible, #hmw-panel .hmw-link:focus-visible {
+  box-shadow: 0 0 0 2px rgba(76,53,255,.25);
+  border-radius: 8px;
 }
-
-#hmw-actions .hmw-link {
-  appearance: none;
-  border: 0;
-  background: transparent;
-  color: var(--hmw-fg);
-  font-weight: 600;
-  font-size: 14px;
-  line-height: 1;
-  padding: 6px 0;
-  cursor: pointer;
-}
-
-#hmw-actions .hmw-sep {
-  width: 1px;
-  height: 16px;
-  background: #cbbefc;
-}
-
-/* Bouton fermer (petit rond rouge) */
-#hmw-close {
-  position: absolute;
-  right: 8px;
-  bottom: 8px;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: var(--hmw-danger);
-  color: #fff;
-  font-weight: 700;
-  border: 0;
-  line-height: 22px;
-  text-align: center;
-  font-size: 14px;
-  cursor: pointer;
-}
-
-/* État “mode résultat” : chip + résultat visibles, textarea masqué */
-#hmw-box.has-result .hmw-chip { display: block; }
-#hmw-box.has-result textarea { display: none; }
-#hmw-box.has-result #hmw-result { display: block; }
