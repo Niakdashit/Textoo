@@ -1,92 +1,64 @@
-:root{
-  --hmw-bg:#F6F0FF;          /* lilas très clair */
-  --hmw-accent:#6F52FF;      /* violet primaire */
-  --hmw-accent-2:#8C78FF;    /* hover */
-  --hmw-text:#2A1856;
-  --hmw-border:#E6DFFF;
-  --hmw-shadow:0 10px 35px rgba(31,13,75,.18);
-  --hmw-radius:22px;
-  --hmw-z:2147483000;
-}
-
-/* Pastille */
+/* ---- pastille ---- */
 #hmw-bubble{
-  position:fixed; right:18px; bottom:18px;
-  width:54px;height:54px;border-radius:999px;
-  border:none; cursor:pointer; z-index:var(--hmw-z);
-  background:var(--hmw-accent);
-  box-shadow:0 6px 22px rgba(111,82,255,.35);
-  display:flex;align-items:center;justify-content:center;
+  position: fixed; right: 18px; bottom: 18px;
+  width: 56px; height: 56px; border-radius: 999px;
+  background:#6b4eff; color:#fff; border:none;
+  box-shadow:0 8px 24px rgba(107,78,255,.35);
+  cursor:pointer; z-index:2147483000; font-size:24px; line-height:56px;
+  display:flex; align-items:center; justify-content:center;
 }
-#hmw-bubble svg{ width:26px;height:26px; fill:#fff }
 
-/* Mini menu au clic de la pastille */
-#hmw-menu{ position:fixed; z-index:var(--hmw-z);
-  background:#fff; border:1px solid var(--hmw-border);
-  border-radius:14px; box-shadow:var(--hmw-shadow);
-  padding:6px; display:none;
+/* menu rapide */
+#hmw-menu{
+  position: fixed; right: 18px; bottom: 82px; z-index:2147483001;
+  background:#fff; border:1px solid #ece8ff; border-radius:14px;
+  box-shadow:0 14px 40px rgba(19,16,44,.15); overflow:hidden;
+  display:none; min-width:160px;
 }
 #hmw-menu button{
-  display:block; width:100%; text-align:left;
-  background:#fff; border:none; border-radius:10px;
-  padding:10px 12px; font:500 14px system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-  color:var(--hmw-text); cursor:pointer;
+  display:block; width:100%; padding:10px 14px; background:#fff; border:0; cursor:pointer;
+  text-align:left; font:14px/1.2 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; color:#4b3bc8;
 }
-#hmw-menu button:hover{ background:var(--hmw-bg) }
+#hmw-menu button:hover{ background:#f6f3ff; }
 
-/* Panneau : pas de backdrop/voile — carte seule */
+/* panneau — pas d’overlay global */
 #hmw-panel{
-  position:absolute; z-index:var(--hmw-z);
-  width:min(820px, 96vw); display:none;
-}
-.hmw-card{
-  background:#fff; border:1px solid var(--hmw-border);
-  border-radius:var(--hmw-radius); box-shadow:var(--hmw-shadow);
-  overflow:hidden;
+  position: fixed; /* on le place par JS au-dessus du composer */
+  z-index:2147483002; width:min(820px, 92vw);
+  background:#fbf8ff; border:1px solid #ece8ff; border-radius:24px;
+  box-shadow:0 14px 40px rgba(19,16,44,.16); padding:18px;
+  display:none;
+  font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
 }
 
-/* En-tête “Répondre | Analyser” (style pastille onglets) */
+/* entête onglets style “Répondre | Analyser” */
 .hmw-tabs{
-  padding:12px 18px; background:var(--hmw-bg);
-  color:var(--hmw-accent); display:flex; gap:14px; align-items:center;
-  border-bottom:1px solid var(--hmw-border);
+  background:#f6f3ff; border:1px solid #ece8ff; border-radius:18px; padding:10px 16px;
+  display:inline-flex; gap:18px; margin-bottom:14px; color:#6b4eff; font-weight:600;
 }
-.hmw-tabs .sep{ opacity:.4 }
-.hmw-tabs button{
-  background:transparent; border:none; cursor:pointer;
-  font:600 18px/1.2 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-  color:var(--hmw-accent); padding:6px 10px; border-radius:12px;
-}
-.hmw-tabs button.active{ background:#EDE6FF; }
+.hmw-tabs .sep{ color:#c7befa; }
 
-/* Zone textarea + bouton principal à droite */
-.hmw-area, .hmw-result{ padding:16px 18px }
+.hmw-block{
+  background:#f6f3ff; border:1px solid #ece8ff; border-radius:22px; padding:16px; margin-top:6px;
+}
+.hmw-block .hmw-badge{
+  float:right; background:#dcd4ff; color:#3b2db6; padding:10px 14px; border-radius:14px; font-weight:700;
+}
+
+/* textarea + actions */
 #hmw-ctx, #hmw-out{
-  width:100%; min-height:170px; resize:vertical;
-  border:1px solid var(--hmw-border); border-radius:18px;
-  font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-  padding:18px; box-sizing:border-box; background:#fff; color:var(--hmw-text);
+  width:100%; min-height:160px; resize:vertical; box-sizing:border-box;
+  border:1px solid #e9e4ff; border-radius:18px; padding:18px 16px;
+  background:#fff; color:#271c6b; outline:none; font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
 }
-#hmw-ctx::placeholder{ color:#BBB1E0 }
+#hmw-out{ min-height:200px; }
 
-.hmw-actions{ display:flex; gap:10px; justify-content:flex-end; margin-top:12px }
-.hmw-actions .primary{
-  background:#fff; color:var(--hmw-accent); border:2px solid var(--hmw-accent);
-  padding:10px 16px; border-radius:16px; font-weight:700; cursor:pointer;
+.hmw-actions{ display:flex; gap:10px; justify-content:flex-end; margin-top:14px; }
+.hmw-btn{
+  border:1px solid #7b67ff; background:#fff; color:#3b2db6;
+  border-radius:14px; padding:10px 16px; cursor:pointer; font-weight:600;
 }
-.hmw-actions .primary:hover{ border-color:var(--hmw-accent-2); color:var(--hmw-accent-2) }
-.hmw-actions .ghost{
-  background:#F6F0FF; color:#5A4AA8; border:none;
-  padding:10px 14px;border-radius:14px; cursor:pointer;
+.hmw-btn--primary{
+  background:#f0ecff; border-color:#6b4eff; color:#2d1fb5;
 }
-
-/* Sub-badges “Réponse rapide / Analyse rapide” */
-.hmw-badge{
-  position:absolute; right:22px; top:-18px;
-  background:#E2D8FF; color:#5A4AA8;
-  padding:10px 16px; border-radius:14px; font-weight:700;
-  box-shadow:var(--hmw-shadow); border:1px solid var(--hmw-border);
-}
-
-/* Positionneur du badge (au dessus de la carte) */
-.hmw-badge-wrap{ position:relative; height:0 }
+.hmw-btn:disabled{ opacity:.6; cursor:default; }
